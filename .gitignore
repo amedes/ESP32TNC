@@ -1,0 +1,8 @@
+*~
+.*.un
+.*.swp
+
+sdkconfig
+sdkconfig.old
+
+build/
