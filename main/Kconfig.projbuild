@@ -1,0 +1,106 @@
+menu "M5TNC Configuration"
+
+choice
+    prompt "Hardware type"
+    default M5STICKC
+
+config M5STICKC
+    bool "M5StickC Plus"
+
+config M5ATOM
+    bool "M5Atom Lite/Matrix"
+
+config FX25TNCR2
+    bool "FX.25 KISS TNC rev.2 (SMD version)"
+
+config FX25TNCR3
+    bool "FX.25 KISS TNC rev.3 (6ports capable version)"
+
+endchoice
+
+config TEXT_MODE
+    bool "Enable text mode instead of KISS protocol"
+    default "y"
+    help
+	Serial output is changed for human readable format.
+
+config USE_WIFI
+    bool "Enable WiFi"
+    default "n"
+    help
+	TNC will connect to WiFi AP at startup.
+
+config ESP_WIFI_SSID
+    string "WiFi SSID"
+    default "myssid"
+    depends on USE_WIFI
+    help
+	SSID (network name) for the example to connect to.
+
+config ESP_WIFI_PASSWORD
+    string "WiFi Password"
+    default "mypassword"
+    depends on USE_WIFI
+    help
+	WiFi password (WPA or WPA2) for the example to use.
+
+config TCP_PORT
+    int "TCP port for KISS connection"
+    default 8001
+    range 0 65535
+    depends on USE_WIFI
+
+config UDP_PORT
+    int "UDP port for KISS connection"
+    default 8001
+    range 0 65535
+    depends on USE_WIFI
+
+config KISS_TXDELAY
+    int "KISS TXDELAY, 10 ms units"
+    default 50
+    range 0 255
+
+config KISS_P
+    int "KISS persistence parameter, P"
+    default 63
+    range 0 255
+    help
+	P = p * 256 - 1
+
+config KISS_SLOTTIME
+    int "KISS SlotTime, 10 ms units"
+    default 10
+    range 1 255
+
+config KISS_FULLDUPLEX
+    bool "full duplex if true"
+    default "n"
+
+config BEACON
+    bool "Enable beacon"
+    default "n"
+    help
+	Enable beacon packet transmittion.
+
+config BEACON_CALLSIGN
+    string "Source address of beacon packet"
+    default "NOCALL"
+    depends on BEACON
+
+config BEACON_INTERVAL
+    int "Interval of beacon packet"
+    default 600
+    range 30 3600
+    depends on BEACON
+     
+config BEACON_TEXT
+    string "Beacon text"
+    default "Beacon packet of M5TNC"
+    depends on BEACON
+
+config DEBUG
+    bool "output debug message"
+    default "n"
+
+endmenu

@@ -1,0 +1,50 @@
+menu "M5StickC Plus configuration"
+
+choice
+    prompt "Battery charge voltage"
+    default AXP192_CHG_VOLTAGE_V41
+
+config AXP192_CHG_VOLTAGE_V41
+    bool "Battery charge voltage 4.1V"
+
+config AXP192_CHG_VOLTAGE_V415
+    bool "Battery charge voltage 4.15V"
+
+config AXP192_CHG_VOLTAGE_V42
+    bool "Battery charge voltage 4.2V"
+
+endchoice
+
+choice
+    prompt "Battery charge stop current"
+    default AXP192_CHG_10PERCENT
+
+config AXP192_CHG_10PERCENT
+    bool "Battery charge stop current 10%"
+    
+config AXP192_CHG_15PERCENT
+    bool "Battery charge stop current 15%"
+
+endchoice
+
+config LCD_OFF_TIME_VBUS
+    int "LCD off time (min.) powered by USB"
+    default 10
+    range 0 127
+
+config LCD_OFF_TIME_BATT
+    int "LCD off time (min.) powered by battery"
+    default 2
+    range 0 127
+
+config TIME_ZONE
+    string "Time zone"
+    default "JST-9"
+    help
+	Assume RTC BM8563 time is local time.
+	
+config BATTERY_INFO
+    bool "output battery information to serial every minutes"
+    default false
+
+endmenu

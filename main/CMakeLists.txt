@@ -1,0 +1,15 @@
+idf_component_register(SRCS
+   	"main.c"
+	"bell202.c"
+	"i2s_adc.c"
+	"decode.c"
+	"uart.c"
+	"timer.c"
+	"send.c"
+	"wifi.c"
+	"kiss.c"
+	"filter.c"
+	"tnc.c"
+	"lcd_packet.c"
+	"m5tnc_logo.c"
+                    INCLUDE_DIRS "")
