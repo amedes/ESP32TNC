@@ -94,7 +94,7 @@ for Kenwood
   * chose ether M5StickC Plus or M5Atom
   * ![menuconfig](image/menuconfig.png)
 * compile and install
-  * `idf.py -p PORT -b 1500000 flash`
+  * `idf.py -p PORT -b 1500000 flash monitor`
 * have fun!
 
 ## Instructions
