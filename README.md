@@ -88,7 +88,7 @@ for Kenwood
 
 * install [ESP-IDF](https://docs.espressif.com/projects/esp-idf/en/latest/esp32/), ESP-IDF v4.0(v4.0.2) is needed
 * download TNC software
-  * `git clone https://github.com/amedes/...`
+  * `git clone https://github.com/amedes/M5TNC.git`
 * configure TNC software
   * `idf.py menuconfig`
   * chose ether M5StickC Plus or M5Atom
