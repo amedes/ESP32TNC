@@ -86,7 +86,7 @@ for Kenwood
 
 ## Installing the M5TNC software
 
-* install [ESP-IDF](https://docs.espressif.com/projects/esp-idf/en/latest/esp32/), ESP-IDF v4.0(v4.0.2) is needed
+* install [ESP-IDF](https://docs.espressif.com/projects/esp-idf/en/latest/esp32/), ESP-IDF v4.2 is needed
 * download TNC software
   * `git clone https://github.com/amedes/M5TNC.git`
 * configure TNC software
