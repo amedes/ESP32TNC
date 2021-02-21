@@ -16,6 +16,14 @@
 #define FX25TNCR2 1
 #endif
 
+#ifdef CONFIG_FX25TNCR3
+#define FX25TNCR3 1
+#endif
+
+#ifdef CONFIG_FX25TNCR3_PORTS
+#define FX25TNCR3_PORTS CONFIG_FX25TNCR3_PORTS
+#endif
+
 #ifdef CONFIG_USE_WIFI
 #define USE_WIFI 1
 #endif

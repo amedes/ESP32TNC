@@ -18,6 +18,12 @@ config FX25TNCR3
 
 endchoice
 
+config FX25TNCR3_PORTS
+    int "Configure number of ports"
+    default 2
+    range 1 6
+    depends on FX25TNCR3
+
 config TEXT_MODE
     bool "Enable text mode instead of KISS protocol"
     default "y"

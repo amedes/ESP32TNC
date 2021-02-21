@@ -29,7 +29,7 @@
 #ifdef FX25TNCR2
 #define TNC_PORTS 2 // number of ports
 #elif defined(FX25TNCR3)
-#define TNC_PORTS 6 // number of ports 1..6
+#define TNC_PORTS FX25TNCR3_PORTS // number of ports 1..6
 #elif defined(M5ATOM)
 #define TNC_PORTS 1
 #elif defined(M5STICKC)
