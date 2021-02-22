@@ -8,6 +8,10 @@
 #define M5ATOM 1
 #endif
 
+#ifdef CONFIG_M5ATOM_PORTS
+#define M5ATOM_PORTS CONFIG_M5ATOM_PORTS
+#endif
+
 #ifdef CONFIG_M5STICKC
 #define M5STICKC 1
 #endif

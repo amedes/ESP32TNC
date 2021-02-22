@@ -45,7 +45,7 @@ static const uint8_t sigmadelta_gpio_pins[] = {
 #if defined(FX25TNCR2)
     25, 26,
 #elif defined(M5ATOM)
-    22,
+    22, 25,
 #elif defined(M5STICKC)
     26,
     //2, // piezo speaker

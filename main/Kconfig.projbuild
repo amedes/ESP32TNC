@@ -18,6 +18,12 @@ config FX25TNCR3
 
 endchoice
 
+config M5ATOM_PORTS
+    int "Configure number of ports"
+    default 1
+    range 1 2
+    depends on M5ATOM
+
 config FX25TNCR3_PORTS
     int "Configure number of ports"
     default 2

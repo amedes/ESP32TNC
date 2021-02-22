@@ -164,7 +164,7 @@ static const uint8_t CDT_LED_PIN[] = {
 #elif defined(FX25TNCR3)
     15, 2, 0, 4, 0, 4,
 #elif defined(M5ATOM)
-    -1,		// using internal RGB LED with RMT SoC
+    -1, -1,	// using internal RGB LED with RMT SoC
 #elif defined(M5STICKC)
     -1,		// using internal Red LED with PWM LED SoC
 #else
@@ -179,7 +179,7 @@ static const uint8_t CDT_LED_ON[] = {
 #elif defined(FX25TNCR3)
     1, 1, 1, 1, 1, 1,
 #elif defined(M5STICKC) || defined(M5ATOM)
-    0,		// not used this value
+    0, 0,	// not used this value
 #else
     1, 1, 1, 1, 1, 1,
 #endif
@@ -189,7 +189,7 @@ static const uint8_t PTT_PIN[] = {
 #if defined(FX25TNCR2) || defined(FX25TNCR3)
     23, 22, 21, 19, 18, 5,
 #elif defined(M5ATOM)
-    19,		// GPIO19
+    19,	21,	// GPIO19, 21
 #elif defined(M5STICKC)
     0,		// GPIO0
 #else
@@ -211,7 +211,7 @@ const uint8_t TNC_ADC_CH[] = {
 #if defined(FX25TNCR2) || defined(FX25TNCR3)
     0, 3, 6, 7, 4, 5,	// GPIO 36, 39, 34, 35, 32, 33,
 #elif defined(M5ATOM)
-    5,			// GPIO 33
+    5, 6,		// GPIO 33, 34
 #elif defined(M5STICKC)
     0,			// GPIO 36
 #else
