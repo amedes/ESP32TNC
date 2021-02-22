@@ -13,6 +13,7 @@
 #include "driver/sigmadelta.h"
 #include "soc/sens_periph.h"
 
+#include "config.h"
 #include "timer.h"
 #include "tnc.h"
 
