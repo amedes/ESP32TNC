@@ -88,20 +88,27 @@ for Kenwood
 
 * install [ESP-IDF](https://docs.espressif.com/projects/esp-idf/en/latest/esp32/), ESP-IDF v4.2 is needed
 * download TNC software
-  * `git clone https://github.com/amedes/M5TNC.git`
+```
+git clone https://github.com/amedes/M5TNC.git
+```
 * configure TNC software
-  * `idf.py menuconfig`
-  * chose ether M5StickC Plus or M5Atom
-  * ![menuconfig](image/menuconfig.png)
+```
+idf.py menuconfig
+```
+  * chose ether M5StickC Plus or M5Atom  
+![menuconfig](image/menuconfig.png)
 * compile and install
-  * `idf.py -p PORT -b 1500000 flash monitor`
+```
+idf.py -p PORT -b 1500000 flash monitor
+```
+(To exit the serial monitor, type Ctrl-].)
 * have fun!
 
 ## Instructions
 ![inst-stick](image/m5-tnc-inst-stick.jpg)
 ![inst-atom](image/m5-tnc-inst-atom.jpg)
 
-# Known Issue
+# Known Issues
 
 * M5TNC will hang up when a packet radio application opens the USB com port.
 
