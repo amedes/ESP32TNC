@@ -60,8 +60,12 @@ void i2s_init(tcb_t tcb[])
 		    ,
 	    .sample_rate =  I2S_SAMPLE_RATE,
 	    .bits_per_sample = I2S_BITS_PER_SAMPLE_16BIT,
+#ifdef I2S_COMM_FORMAT_STAND_IS
+	    // for ESP-IDF v4.2 or later
 	    .communication_format = I2S_COMM_FORMAT_STAND_I2S,
-	    //.communication_format = I2S_COMM_FORMAT_I2S_MSB,
+#else
+	    .communication_format = I2S_COMM_FORMAT_I2S_MSB,
+#endif
 	    //.channel_format = I2S_CHANNEL_FMT_RIGHT_LEFT,
 	    .channel_format = I2S_CHANNEL_FMT_ONLY_LEFT,
 	    .intr_alloc_flags = ESP_INTR_FLAG_LEVEL1,
