@@ -15,7 +15,8 @@ feature
 * support Wi-Fi connection (TCP and UDP)
 * display received packet on the LCD (M5StickC Plus only)
 * working with internal battery (M5StickC Plus only)
-* planed: support FX.25 forward error correction
+* decoding packet sound without TNC HAT using internal MIC (M5StickC Plus only)
+* planned: support FX.25 forward error correction
 
 *Caution*: not supported normal **M5StickC**
 
