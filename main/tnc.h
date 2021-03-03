@@ -112,7 +112,7 @@ typedef struct TCB { // TNC Control Block
 
     // transmitter control
     uint8_t ptt;
-    uint8_t ptt_pin;
+    int8_t ptt_pin;
     //QueueHandle_t mqueue; // modem queue
 
 #ifdef FX25TNCR2 // only rev.2 has STA LED

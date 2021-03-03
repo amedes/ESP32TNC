@@ -18,6 +18,11 @@ config FX25TNCR3
 
 endchoice
 
+config M5STICKC_AUDIO
+    bool "packet input/output using internal MIC and SP"
+    default "n"
+    depends on M5STICKC
+
 config M5ATOM_PORTS
     int "Configure number of ports"
     default 1

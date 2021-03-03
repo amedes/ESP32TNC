@@ -48,8 +48,11 @@ static const uint8_t sigmadelta_gpio_pins[] = {
 #elif defined(M5ATOM)
     22, 25,
 #elif defined(M5STICKC)
+#ifdef M5STICKC_AUDIO
+    2, // piezo speaker
+#else
     26,
-    //2, // piezo speaker
+#endif
 #else
     25, 26, 27, 14, 12, 13,
     //23, 22, 21, 19, 18, 5, 4, 15,	// noise away?
@@ -584,7 +587,9 @@ void mod_task(void *arg)
 		    }
 
 		    // PTT off
+#ifndef M5STICKC_AUDIO
 		    gpio_set_level(tp->ptt_pin, 0);
+#endif
 #ifdef M5ATOM
 		    m5atom_led_set_level(M5ATOM_LED_RED, 0);
 #endif

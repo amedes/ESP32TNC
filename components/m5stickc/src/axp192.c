@@ -113,11 +113,18 @@ void axp192_init(void)
     // PEK short 128ms, long 1s, shutdown 4s
     axp192_writeReg(0x36, 0x0c);
 
+#define AXP192_MIC_ON 1
+
+#ifdef AXP192_MIC_ON
+    // Set GPIO0 to LDO (MIC power on)
+    axp192_writeReg(0x90, 0x02);
+
+    // Set MIC voltage to 3.3V
+    axp192_writeReg(0x91, 0xf0);
+#else
     // Set GPIO0 to floating (MIC power off)
     axp192_writeReg(0x90, 0x07);
-
-    // Set MIC voltage to 1.8V
-    axp192_writeReg(0x91, 0x00);
+#endif
 
     // Set GPIO1 to floating
     axp192_writeReg(0x92, 0x07);

@@ -53,9 +53,11 @@ void i2s_init(tcb_t tcb[])
 {
 	i2s_port_t i2s_num = I2S_NUM;
 	i2s_config_t i2s_config = {
-            .mode = I2S_MODE_MASTER | I2S_MODE_RX | I2S_MODE_ADC_BUILT_IN
-#ifdef I2S_DAC_OUTPUT
-		    | I2S_MODE_TX | I2S_MODE_DAC_BUILT_IN
+            .mode = I2S_MODE_MASTER | I2S_MODE_RX
+#ifdef M5STICKC_AUDIO
+		| I2S_MODE_PDM
+#else
+		| I2S_MODE_ADC_BUILT_IN
 #endif
 		    ,
 	    .sample_rate =  I2S_SAMPLE_RATE,
@@ -71,20 +73,32 @@ void i2s_init(tcb_t tcb[])
 	    .intr_alloc_flags = ESP_INTR_FLAG_LEVEL1,
 	    .dma_buf_count = I2S_DMA_BUF_COUNT,
 	    .dma_buf_len = I2S_DMA_BUF_LEN,
+#ifdef M5STICKC_AUDIO
+	    .use_apll = true,
+#else
 	    .use_apll = false,
+#endif
 	};
 
 	//install and start i2s driver
 	ESP_ERROR_CHECK(i2s_driver_install(i2s_num, &i2s_config, 0, NULL));
-	// stop I2S for setup
-	//ESP_ERROR_CHECK(i2s_stop(i2s_num));
-	// start I2S
-	//ESP_ERROR_CHECK(i2s_start(i2s_num));
 
-#ifdef I2S_DAC_OUTPUT
-	//init DAC pad
-	ESP_ERROR_CHECK(i2s_set_dac_mode(I2S_DAC_CHANNEL_BOTH_EN));
-#endif
+#ifdef M5STICKC_AUDIO
+
+	// initialize input pin for SPM1423
+	static const i2s_pin_config_t pin_config = {
+	    .bck_io_num = I2S_PIN_NO_CHANGE,
+	    .ws_io_num = GPIO_NUM_0,	// CLK
+	    .data_out_num = I2S_PIN_NO_CHANGE,
+	    .data_in_num = GPIO_NUM_34,	// DATA
+	};
+	ESP_ERROR_CHECK(i2s_set_pin(i2s_num, &pin_config));
+	ESP_ERROR_CHECK(i2s_set_clk(i2s_num, I2S_SAMPLE_RATE, I2S_BITS_PER_SAMPLE_16BIT, I2S_CHANNEL_MONO));
+
+	// set down sample rate to 8 * 16
+	ESP_ERROR_CHECK(i2s_set_pdm_rx_down_sample(i2s_num, I2S_PDM_DSR_16S));
+
+#else
 
 	//init ADC pad
 	ESP_ERROR_CHECK(i2s_set_adc_mode(I2S_ADC_UNIT, I2S_ADC_CHANNEL));
@@ -96,126 +110,12 @@ void i2s_init(tcb_t tcb[])
 	// delay for I2S bug workaround?
         vTaskDelay(10 / portTICK_PERIOD_MS);
 
-	//ESP_ERROR_CHECK(adc_set_data_inv(I2S_ADC_UNIT, true));
-	
 	// ***IMPORTANT*** enable continuous adc sampling
 	SYSCON.saradc_ctrl2.meas_num_limit = 0;
 
 	ESP_LOGI(TAG, "sampling rate: %d Hz", SAMPLING_RATE);
 	ESP_LOGI(TAG, "sample delay: %d", DELAYED_N);
 	ESP_LOGI(TAG, "delay: %f us", DELAYED_N * 1000000.0 / SAMPLING_RATE);
-
-#if 0
-
-#if SAMPLING_RATE == 6728
-
-#if TNC_PORTS == 6
-#define DIV_N 56
-#define DIV_A 53
-#define DIV_B 33
-#define DIV_M 35
-#else
-#define DIV_M 24
-#define DIV_N 247
-#define DIV_A 63
-#define DIV_B 46
-#endif
-
-#elif SAMPLING_RATE == 13456
-
-#if TNC_PORTS == 6
-#define DIV_M 4
-#define DIV_N 247
-#define DIV_A 43
-#define DIV_B 31
-#else
-#define DIV_M 12
-#define DIV_N 247
-#define DIV_A 43
-#define DIV_B 31
-#endif
-
-#elif SAMPLING_RATE == 13200
-
-#if TNC_PORTS == 6
-#define DIV_M 4
-#define DIV_N 252
-#define DIV_A 59
-#define DIV_B 31
-#else
-#define DIV_M 16
-#define DIV_N 189
-#define DIV_A 33
-#define DIV_B 13
-#endif
-
-#elif SAMPLING_RATE == 13440
-
-#if TNC_PORTS == 6
-#define DIV_M 4
-#define DIV_N 248
-#define DIV_A 63
-#define DIV_B 1
-#else
-#define DIV_M 12
-#define DIV_N 248
-#define DIV_A 63
-#define DIV_B 1
-#endif
-
-#elif SAMPLING_RATE == 13441
-
-#if TNC_PORTS == 6
-#define DIV_M 4
-#define DIV_N 248
-#define DIV_A 63
-#define DIV_B 0
-#else
-#define DIV_M 12
-#define DIV_N 248
-#define DIV_A 63
-#define DIV_B 0
-#endif
-
-#elif SAMPLING_RATE == 20184
-
-#if TNC_PORTS == 6
-#define DIV_M 3
-#define DIV_N 220
-#define DIV_A 56
-#define DIV_B 11
-#else
-#define DIV_M 9
-#define DIV_N 220
-#define DIV_A 56
-#define DIV_B 11
-#endif
-
-#endif
-
-#ifdef DIV_M
-	// set accurate sampling rate, 80736 Hz (6728 * 6 * 2)
-	// 160 MHz / (247 + 31/43) / 8 = 80736.0120... Hz
-	I2S0.clkm_conf.clkm_div_num = DIV_N;
-	I2S0.clkm_conf.clkm_div_a = DIV_A;
-	I2S0.clkm_conf.clkm_div_b = DIV_B;
-	I2S0.sample_rate_conf.rx_bck_div_num = DIV_M;
-	ESP_LOGI(TAG, "PLL_D2: Req RATE: %u, real rate: %d.%03d, N = %d, b/a = %d/%d, M = %d",
-		SAMPLING_RATE * TNC_PORTS,
-
-#define D2_CLK (160 * 1000 * 1000)
-#define DIVIDEND ((double)D2_CLK * DIV_A)
-#define DIVISOR ((DIV_N * DIV_A + DIV_B) * DIV_M)
-#define REAL ((double)D2_CLK / 2.0 / DIV_M / (DIV_N + (double)DIV_B / DIV_A))
-
-		(int)REAL, (int)((REAL - floor(REAL)) * 1000.0),
-		I2S0.clkm_conf.clkm_div_num,
-		I2S0.clkm_conf.clkm_div_b,
-		I2S0.clkm_conf.clkm_div_a,
-		I2S0.sample_rate_conf.rx_bck_div_num);
-#endif
-
-#endif
 
 	// channel, attenation, bit width
 	SYSCON.saradc_sar1_patt_tab[0] = ((ADC1_CHANNEL_0 << 4) | (ADC_WIDTH_BIT_12 << 2) | ADC_ATTEN_DB_0) << 24;
@@ -226,12 +126,8 @@ void i2s_init(tcb_t tcb[])
 
 	for (int i = 0; i < TNC_PORTS; i++) {
 
-#if 0
-	    ch = (i == 0) ? 0 : i + 2;
-#else
 	    ch = TNC_ADC_CH[i];
 	    ESP_LOGI(TAG, "TNC port %d, adc channel %d", i, ch);
-#endif
 
 	    SYSCON.saradc_sar1_patt_tab[i / 4] &= ~(0xff << (3 - (i % 4)) * 8);
 #ifdef FX25TNCR2
@@ -252,4 +148,5 @@ void i2s_init(tcb_t tcb[])
 	SENS.sar_touch_ctrl1.hall_phase_force = true;
 #endif
 
+#endif // M5STICKC_AUDIO
 }

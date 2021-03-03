@@ -345,7 +345,9 @@ static void send_task(void *arg)
 #ifdef M5ATOM
 	    m5atom_led_set_level(M5ATOM_LED_RED, 1);
 #endif
+#ifndef M5STICKC_AUDIO
 	    gpio_set_level(tp->ptt_pin, 1);
+#endif
 	    tp->ptt = true;
 
 	    ESP_LOGD(TAG, "PTT on, gpio = %d, port = %d", tp->ptt_pin, tp->port);

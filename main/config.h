@@ -79,3 +79,7 @@
 #ifdef CONFIG_DEBUG
 #define DEBUG 1
 #endif
+
+#ifdef CONFIG_M5STICKC_AUDIO
+#define M5STICKC_AUDIO 1
+#endif

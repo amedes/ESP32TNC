@@ -61,70 +61,8 @@ static void read_i2s_adc(void *arg)
 {
     static uint16_t buf[I2SBUF_SIZE];
     size_t size;
-    //size_t len = 0;
-#if 0 
-    // adjust ADC bias
-    int loop = 8;
-    do {
-	if (i2s_read(I2S_NUM_0, buf, I2SBUF_SIZE, &size, portMAX_DELAY) != ESP_OK) {
-	    continue;
-	}
-
-	// flush wrong samples
-	int bitmap = 0;
-	for (int i = 0; i < TNC_PORTS; i++) {
-	    int ch = buf[i] >> 12;
-
-	    if (ch >= 2) ch -= 2;
-	    bitmap |= 1 << ch;
-	}
-
-	if (bitmap + 1 != (1 << TNC_PORTS)) {
-	    ESP_LOGI(TAG, "i2s_read() again");
-	    continue;
-	}
-
-	// calculate average
-	for (int i = 0; i < TNC_PORTS; i++) {
-	    int ch = (i == 0) ? 0 : i + 2;
-	    int sum = 0;
-	    int count = 0;
-
-	    for (int j = 0; j < size / sizeof(uint16_t); j++) {
-		uint16_t adc = buf[j];
-
-
-		if ((adc >> 12) == ch) {
-		    sum += adc & 0x0fff;
-		    count++;
-
-		    if (j < 16) ESP_LOGI(TAG, "buf[%d] = %04x, port = %d", j, adc, i);
-		}
-	    }
-
-#define ADC_THRESH_LOW (2048 - 192)
-#define ADC_THRESH_HIGH (2048 + 192)
-
-	    if (count > 0) {
-		int average = (sum + count/2) / count;
-
-		if ((average >= ADC_THRESH_LOW) && (average <= ADC_THRESH_HIGH)) tcb[i].avg = average;
-	    }
-	    ESP_LOGI(TAG, "port: %d, adc avg = %d", i, tcb[i].avg);
-	}
-
-    } while (--loop > 0);
-
-    if (loop == 0) {
-    	for (int i = 0; i < TNC_PORTS; i++) {
-	    ESP_LOGI(TAG, "port: %d, adc avg = %d", i, tcb[i].avg);
-	}
-    }
-#endif
 
     while (1) {
-
-	//gpio_set_level(I2S_BUSY_PIN, 0); // free
 
 	if (i2s_read(I2S_NUM_0, buf, I2SBUF_SIZE, &size, portMAX_DELAY) != ESP_OK) {
 	    ESP_LOGI(TAG, "i2s_read() fail");
@@ -135,16 +73,9 @@ static void read_i2s_adc(void *arg)
 
 	for (int i = 0; i < size / sizeof(uint16_t); i++) {
 	    uint16_t adc = buf[i];
-#if 0
-	    int port = adc >> 12; // ch = 0, 3, ..., 7
 
-	    if (port > 0) port -= 2; // skip ch 1 and 2
-
-	    adc &= 0xfff;
-	    if (port < TNC_PORTS) {
-	    	// decode adc sample
-		demodulator(&tcb[port], adc);
-	    }
+#ifdef M5STICKC_AUDIO
+	    demodulator(&tcb[0], (int16_t)adc + 32768);
 #else
 	    int ch = adc >> 12;
 	    tcb_t *tp = adc_ch_tcb[ch];
@@ -185,13 +116,17 @@ static const uint8_t CDT_LED_ON[] = {
 #endif
 };
 
-static const uint8_t PTT_PIN[] = {
+static const int8_t PTT_PIN[] = {
 #if defined(FX25TNCR2) || defined(FX25TNCR3)
     23, 22, 21, 19, 18, 5,
 #elif defined(M5ATOM)
     19,	21,	// GPIO19, 21
 #elif defined(M5STICKC)
+#ifdef M5STICKC_AUDIO
+    -1,		// disable PTT
+#else
     0,		// GPIO0
+#endif
 #else
     23, 22, 21, 19, 18, 5,
     //15, 2, 15, 2, 15, 2,
@@ -331,11 +266,13 @@ void tnc_init(tcb_t *tcb, int ports)
 	}
 
 	// PTT gpio initialize
-	ESP_ERROR_CHECK(gpio_reset_pin(tp->ptt_pin));
-	ESP_ERROR_CHECK(gpio_set_direction(tp->ptt_pin, GPIO_MODE_OUTPUT));
-	ESP_ERROR_CHECK(gpio_set_level(tp->ptt_pin, 0));
+	if (tp->ptt_pin >= 0) {
+	    ESP_ERROR_CHECK(gpio_reset_pin(tp->ptt_pin));
+	    ESP_ERROR_CHECK(gpio_set_direction(tp->ptt_pin, GPIO_MODE_OUTPUT));
+	    ESP_ERROR_CHECK(gpio_set_level(tp->ptt_pin, 0));
 
-	ESP_LOGI(TAG, "port = %d, ptt gpio = %d", tp->port, tp->ptt_pin);
+	    ESP_LOGI(TAG, "port = %d, ptt gpio = %d", tp->port, tp->ptt_pin);
+	}
 
 	// STA LED gpio initialize
 #ifdef FX25TNCR2
