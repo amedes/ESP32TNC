@@ -91,4 +91,6 @@ void beep_init(void)
 
     ESP_ERROR_CHECK(rmt_config(&conf));
     ESP_ERROR_CHECK(rmt_driver_install(conf.channel, 0, 0));
+
+    beep(BEEP_FREQ, 100, false);
 }
