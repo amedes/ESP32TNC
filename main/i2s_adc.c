@@ -14,6 +14,7 @@
 #include "soc/i2s_periph.h"
 #include "soc/sens_periph.h"
 #include "soc/syscon_periph.h"
+#include "esp_idf_version.h"
 
 #include "tnc.h"
 
@@ -62,7 +63,7 @@ void i2s_init(tcb_t tcb[])
 		    ,
 	    .sample_rate =  I2S_SAMPLE_RATE,
 	    .bits_per_sample = I2S_BITS_PER_SAMPLE_16BIT,
-#ifdef I2S_COMM_FORMAT_STAND_IS
+#if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(4, 2, 0)
 	    // for ESP-IDF v4.2 or later
 	    .communication_format = I2S_COMM_FORMAT_STAND_I2S,
 #else

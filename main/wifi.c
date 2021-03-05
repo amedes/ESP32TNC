@@ -16,6 +16,7 @@
 #include "esp_log.h"
 #include "nvs_flash.h"
 //#include "esp_heap_caps.h"
+#include "esp_idf_version.h"
 
 #include "lwip/api.h"
 #include "lwip/tcp.h"
@@ -493,14 +494,21 @@ static void wifi_init_sta(void)
 {
     s_wifi_event_group = xEventGroupCreate();
 
+#if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(4, 1, 0)
     ESP_ERROR_CHECK(esp_netif_init());
 
     ESP_ERROR_CHECK(esp_event_loop_create_default());
     esp_netif_create_default_wifi_sta();
+#else
+    tcpip_adapter_init();
+
+    ESP_ERROR_CHECK(esp_event_loop_create_default());
+#endif
 
     wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
     ESP_ERROR_CHECK(esp_wifi_init(&cfg));
 
+#if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(4, 2, 0)
     esp_event_handler_instance_t instance_any_id;
     esp_event_handler_instance_t instance_got_ip;
     ESP_ERROR_CHECK(esp_event_handler_instance_register(WIFI_EVENT,
@@ -513,6 +521,16 @@ static void wifi_init_sta(void)
 		&event_handler,
 		NULL,
 		&instance_got_ip));
+#else
+    ESP_ERROR_CHECK(esp_event_handler_register(WIFI_EVENT,
+		ESP_EVENT_ANY_ID,
+		&event_handler,
+		NULL));
+    ESP_ERROR_CHECK(esp_event_handler_register(IP_EVENT,
+		IP_EVENT_STA_GOT_IP,
+		&event_handler,
+		NULL));
+#endif
 
     ESP_ERROR_CHECK(esp_wifi_set_ps(WIFI_PS_NONE));
 
@@ -552,15 +570,12 @@ static void wifi_init_sta(void)
 	ESP_LOGE(TAG, "UNEXPECTED EVENT");
     }
 
+#if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(4, 2, 0)
     ESP_ERROR_CHECK(esp_event_handler_instance_unregister(IP_EVENT, IP_EVENT_STA_GOT_IP, instance_got_ip));
     ESP_ERROR_CHECK(esp_event_handler_instance_unregister(WIFI_EVENT, ESP_EVENT_ANY_ID, instance_any_id));
-
-#ifdef USE_WPS
-    ESP_ERROR_CHECK(esp_wifi_start() );
-    ESP_LOGI(TAG, "start wps...");
-
-    ESP_ERROR_CHECK(esp_wifi_wps_enable(&config));
-    ESP_ERROR_CHECK(esp_wifi_wps_start(0));
+#else
+    ESP_ERROR_CHECK(esp_event_handler_unregister(IP_EVENT, IP_EVENT_STA_GOT_IP, &event_handler));
+    ESP_ERROR_CHECK(esp_event_handler_unregister(WIFI_EVENT, ESP_EVENT_ANY_ID, &event_handler));
 #endif
 }
 
