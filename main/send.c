@@ -29,6 +29,11 @@ static const char TAG[] = "send";
 
 #define BUSY_PORT 2
 
+void send_bytes(tcb_t *tp, uint8_t data[], size_t data_len)
+{
+	xRingbufferSend(tp->queue, data, data_len, portMAX_DELAY);
+}
+
 #if 0
 
 #ifdef USEQUEUE
