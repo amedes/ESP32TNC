@@ -1,4 +1,8 @@
 
+#define FX25_CODE_MAX   255
+#define FX25_PARITY_MIN 16
+#define FX25_DATA_LEN_MAX   (FX25_CODE_MAX - FX25_PARITY_MIN)
+
 typedef struct FX25TAG {
     uint64_t cotag;
     int rs_code;

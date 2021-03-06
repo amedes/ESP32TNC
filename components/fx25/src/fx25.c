@@ -78,7 +78,8 @@ int fx25_bit_stuffing(uint8_t *buf[2], size_t size[2], uint8_t buff[], int buff_
     // send start flag
     static const uint8_t flag = AX25_FLAG;
 
-	if (buff_index < buff_len) buff[buff_index++] = flag;
+    if (buff_index < buff_len) buff[buff_index++] = flag;
+    bit_len += 8;
 
     //ESP_LOGI(TAG, "send start flag, port = %d", tp->port);
 
@@ -134,22 +135,20 @@ int fx25_bit_stuffing(uint8_t *buf[2], size_t size[2], uint8_t buff[], int buff_
 	    	data |= bit << data_bits;
 
 	    	if (++data_bits >= 8) { // filled all 8 bits
-				if (buff_index < buff_len) buff[buff_index++] = flag;
+				if (buff_index < buff_len) buff[buff_index++] = data;
 
 				bit_len += data_bits;
-
-	    		data = 0;
+				data = 0;
 				data_bits = 0;
 
 	    	}
-
 		} // while (bitq_bits-- > 0)
 
     } // for (i = 0; ..
 
     if (data_bits > 0) { // there is data to be sent
 
-		if (buff_index < buff_len) buff[buff_index++] = bitq;
+		if (buff_index < buff_len) buff[buff_index++] = data | (AX25_FLAG << data_bits);
 
 		bit_len += data_bits;
 
@@ -167,27 +166,50 @@ int fx25_send_packet(tcb_t *tp, uint8_t data[], size_t data_len, int parity)
 	int bit_len;
 	int byte_len;
 	uint8_t *buf;
+	size_t buf_len;
+
+	if (data_len > FX25_DATA_LEN_MAX) return -1; // data too large
+
+	buf_len = ((data_len + 2) * 6 + 5) / 5; // * 6/5, calculate maximum byte length
+	
+	buf = malloc(buf_len);
+	if (buf == NULL) return -1; // malloc error
 
 	// get bit stuffed packet length
-	bit_len = fx25_bit_stuffing(data, data_len, NULL, 0);
+	bit_len = fx25_bit_stuffing(data, data_len, buf, buf_len);
 	byte_len = (bit_len + 7) / 8;
 
+	// find suitable tag_no
 	tagp = fx25_get_tagno(byte_len, parity);
-	if (tagp == NULL) return -1;
+	if (tagp == NULL) {
+		free(buf);		
+		return -1; // no suitable tag_no
+	}
 
-	buf = malloc(tagp->rs_code);
+	buf = realloc(buf, tagp->rs_code);
 	if (buf == NULL) return -1;
 
-	fx25_bit_stuffing(data, data_len, buf, tagp->rs_code);
-	if (rs8_encode(buf, tagp->rs_info, &buf[tagp->rs_info], parity) != RS8_OK) return -1;
+	// fill pad
+	for (int i = byte_len; i < tagp->rs_code; i++) {
+		int flag = (AX25_FLAG << 8)| AX25_FLAG;
+		int shift = bit_len % 8;
+
+		buf[i] = flag >> (8 - shift);
+	}
+
+	// add parity
+	if (rs8_encode(buf, tagp->rs_info, &buf[tagp->rs_info], parity) != RS8_OK) {
+		free(buf);
+		return -1;
+	}
 
 	// send
 	//  preamble + correlation tag + AX.25 + RS parity + postamble
-	send_data(tp, &tagp->tagval, TAGSIZE);
-	
-	send_data(tp, buf, tagp->rs_code);
-
-	send_data(tp, &flag, sizeof(flag));
+	send_bytes(tp, &tagp->tagval, sizeof(tagp->tagval)); // correlation tag
+	send_bytes(tp, buf, tagp->rs_code); // AX.25 packet + FX.25 parity
+	send_bytes(tp, &flag, sizeof(flag)); // FX.25 postamble
 
 	free(buf);
+
+	return 0;
 }
