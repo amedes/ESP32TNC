@@ -25,9 +25,14 @@
 
 static const char TAG[] = "send";
 
-//#define USEQUEUE 1
 
 #define BUSY_PORT 2
+
+// send data to modem queue
+void send_bytes(tcb_t *tp, void const *data, size_t size)
+{
+    xRingbufferSend(tp->queue, data, size, portMAX_DELAY);
+}
 
 #if 0
 
@@ -164,11 +169,7 @@ static void packet_send(tcb_t *tp, uint8_t const *buf, size_t size)
 
 static void packet_send_split(tcb_t *tp, uint8_t *buf[2], size_t size[2])
 {
-#ifdef USEQUEUE
-    uint8_t data = 0; // data to modem
-#else
     uint32_t data = 0; // data to modem
-#endif
     int data_bits = 0; // number of bits
     int count_ones = 0;
     int insert_zero = false;
@@ -190,11 +191,7 @@ static void packet_send_split(tcb_t *tp, uint8_t *buf[2], size_t size[2])
     // send start flag
     static const uint8_t flag = AX25_FLAG;
 
-#ifdef USEQUEUE
-    xQueueSend(tp->queue, &flag, portMAX_DELAY);
-#else
-    xRingbufferSend(tp->queue, &flag, sizeof(flag), portMAX_DELAY);
-#endif
+    send_bytes(tp, &flag, sizeof(flag));
 
     //ESP_LOGI(TAG, "send start flag, port = %d", tp->port);
 
@@ -253,13 +250,8 @@ static void packet_send_split(tcb_t *tp, uint8_t *buf[2], size_t size[2])
 
 	    data |= bit << data_bits;
 
-#ifdef USEQUEUE
-	    if (++data_bits >= 8) { // filled all 8 bits
-	    	xQueueSend(tp->queue, &data, portMAX_DELAY);
-#else
 	    if (++data_bits >= 32) { // filled all 32 bits
-	    	xRingbufferSend(tp->queue, &data, sizeof(data), portMAX_DELAY);
-#endif
+		send_bytes(tp, &data, sizeof(data));
 
 	    	data = 0;
 		data_bits = 0;
@@ -272,15 +264,10 @@ static void packet_send_split(tcb_t *tp, uint8_t *buf[2], size_t size[2])
 
     if (data_bits > 0) { // there is data to be sent
 
-#ifdef USEQUEUE
-	xQueueSend(tp->queue, &data, portMAX_DELAY);
-#else
 	int byte_size = (data_bits + 7) / 8;
-	xRingbufferSend(tp->queue, &data, byte_size, portMAX_DELAY);
+	send_bytes(tp, &data, byte_size);
 
     	//ESP_LOGI(TAG, "packet_send_split(): send extra %d bytes, port = %d", byte_size, tp->port);
-#endif
-
     }
 
 }
@@ -358,11 +345,8 @@ static void send_task(void *arg)
 	    for (int i = 0; i < TXD_BYTES(tp->TXDELAY); i++) {
 		uint8_t data = 0x7e; // flag (7E)
 		//uint8_t data = 0x55; // flag (7E)
-#ifdef USEQUEUE
-		xQueueSend(tp->queue, &data, portMAX_DELAY);
-#else
-		xRingbufferSend(tp->queue, &data, sizeof(data), portMAX_DELAY);
-#endif
+		
+		send_bytes(tp, &data, sizeof(data));
 	    }
 
 	    //ESP_LOGI(TAG, "sent preamble, port = %d", tp->port);
@@ -389,11 +373,7 @@ void send_init(tcb_t tcb[])
     for (int i = 0; i < TNC_PORTS; i++) {
 
 	// output queue
-#ifdef USEQUEUE
-    	tcb[i].queue = xQueueCreate(TX_QUEUE_SIZE, sizeof(uint8_t));
-#else
     	tcb[i].queue = xRingbufferCreate(TX_QUEUE_SIZE, RINGBUF_TYPE_BYTEBUF);
-#endif
     	assert(tcb[i].queue != NULL);
 
 	// input queue
