@@ -10,13 +10,13 @@ feature
 * support Bell202 1200bps AFSK
 * implementing software modem, decoding capability same as TI TCM3105 modem chip
   * about 980 packets can be decoded against WA8LMF TNC TEST CD Track 1
+* support FX.25 forward error correction (Direwolf compatible)
 * support KISS protocol only
 * using USB serial for host connection and power supply
 * support Wi-Fi connection (TCP and UDP)
 * display received packet on the LCD (M5StickC Plus only)
 * working with internal battery (M5StickC Plus only)
 * decoding packet sound without TNC HAT using internal MIC (M5StickC Plus only)
-* planned: support FX.25 forward error correction
 
 *Caution*: not supported normal **M5StickC**
 
