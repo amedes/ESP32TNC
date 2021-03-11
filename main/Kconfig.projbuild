@@ -94,6 +94,31 @@ config KISS_FULLDUPLEX
     bool "full duplex if true"
     default "n"
 
+config FX25_ENABLE
+    bool "Enable FX.25 Forward Error Correction"
+    default "y"
+
+choice
+    prompt "FX.25 number of parity symbols"
+    default FX25_PARITY_16
+    depends on FX25_ENABLE
+    help
+        Number of parity symbols of Reed-Solomon code
+
+config FX25_PARITY_0
+    bool "AX.25"
+
+config FX25_PARITY_16
+    bool "FX.25 16 parity"
+
+config FX25_PARITY_32
+    bool "FX.25 32 parity"
+
+config FX25_PARITY_64
+    bool "FX.25 64 parity"
+
+endchoice
+
 config BEACON
     bool "Enable beacon"
     default "n"

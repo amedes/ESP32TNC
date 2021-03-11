@@ -76,15 +76,15 @@ static char *make_address(char str[])
     return addr;
 }
 
-static int make_packet(uint8_t *packet, int pkt_len)
+static int make_packet(tcb_t *tp, uint8_t *packet, int pkt_len)
 {
     static const uint8_t address_field[] = {
-	'B' << 1, 'E' << 1, 'A' << 1, 'C' << 1, 'O' << 1, 'N' << 1,
-	0xe0, // command(V2), ssid
-	'N' << 1, 'O' << 1, 'C' << 1, 'A' << 1, 'L' << 1, 'L' << 1,
-	0x61, // command(V2), ssid, end of address field
-	0x03, // control
-	0xf0, // PID
+    	'B' << 1, 'E' << 1, 'A' << 1, 'C' << 1, 'O' << 1, 'N' << 1,
+    	0xe0, // command(V2), ssid
+	    'N' << 1, 'O' << 1, 'C' << 1, 'A' << 1, 'L' << 1, 'L' << 1,
+	    0x61, // command(V2), ssid, end of address field
+	    0x03, // control
+	    0xf0, // PID
     };
     //static uint8_t packet[PACKET_SIZE];
     uint8_t *p = packet;
@@ -105,7 +105,16 @@ static int make_packet(uint8_t *packet, int pkt_len)
 
     static uint32_t cnt = 0;
     cnt++;
-    p += sprintf((char *)p, "seq=%d, time=%lds, prot=AX.25 ", cnt, t - epoch);
+    p += sprintf((char *)p, "seq=%d, time=%lds, prot=", cnt, t - epoch);
+#ifdef FX25_ENABLE
+    if (tp->fx25_parity == 0) {
+        p += sprintf((char *)p, "AX.25 ");
+    } else {
+        p += sprintf((char *)p, "FX.25/%d ", tp->fx25_parity);
+    }
+#else
+    p += sprintf((char *)p, "AX.25 ");
+#endif
     p += snprintf((char *)p, pkt_len - (p - packet), "%s", BEACON_TEXT);
 
     return p - packet;
@@ -120,15 +129,15 @@ static void send_packet_task(void *arg)
 
     while (1) {
 
-	vTaskDelay(BEACON_INTERVAL * 1000 / portTICK_PERIOD_MS);
+	    vTaskDelay(BEACON_INTERVAL * 1000 / portTICK_PERIOD_MS);
 
-	pkt_len = make_packet(packet, PACKET_SIZE);
-	memcpy(&packet[CALLSIGN_LEN], src_addr, CALLSIGN_LEN); // src address
+	    pkt_len = make_packet(tp, packet, PACKET_SIZE);
+	    memcpy(&packet[CALLSIGN_LEN], src_addr, CALLSIGN_LEN); // src address
 
-	if (xRingbufferSend(tp->ringbuf, packet, pkt_len, portMAX_DELAY) != pdTRUE) {
-	    ESP_LOGW(TAG, "xRingbufferSend() fail, port = %d", tp->port);
-	    continue;
-	}
+	    if (xRingbufferSend(tp->ringbuf, packet, pkt_len, portMAX_DELAY) != pdTRUE) {
+	        ESP_LOGW(TAG, "xRingbufferSend() fail, port = %d", tp->port);
+	        continue;
+	    }
 
     }
 }
@@ -161,10 +170,10 @@ void app_main(void)
     m5atom_led_init();
 
     for (int i = (1 << M5ATOM_LED_COLOR_MAX) - 1; i >= 0; i--) {
-	m5atom_led_set_level(M5ATOM_LED_GREEN, (i >> M5ATOM_LED_GREEN) & 1);
-	m5atom_led_set_level(M5ATOM_LED_RED, (i >> M5ATOM_LED_RED) & 1);
-	m5atom_led_set_level(M5ATOM_LED_BLUE, (i >> M5ATOM_LED_BLUE) & 1);
-	vTaskDelay(200 / portTICK_PERIOD_MS);
+	    m5atom_led_set_level(M5ATOM_LED_GREEN, (i >> M5ATOM_LED_GREEN) & 1);
+	    m5atom_led_set_level(M5ATOM_LED_RED, (i >> M5ATOM_LED_RED) & 1);
+	    m5atom_led_set_level(M5ATOM_LED_BLUE, (i >> M5ATOM_LED_BLUE) & 1);
+	    vTaskDelay(200 / portTICK_PERIOD_MS);
     }
 #endif
 

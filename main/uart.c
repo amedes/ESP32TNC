@@ -574,8 +574,8 @@ void uart_init(void)
 
     uart_rb = xRingbufferCreate(UART_RB_SIZE, RINGBUF_TYPE_ALLOWSPLIT);
     if (uart_rb == NULL) {
-	ESP_LOGE(TAG, "xRingbufferCreate() fail");
-	abort();
+		ESP_LOGE(TAG, "xRingbufferCreate() fail");
+		abort();
     }
 
     if (xTaskCreatePinnedToCore(uart_task, "uart task", 1024 * 4, uart_rb, tskIDLE_PRIORITY + 0, &task, tskNO_AFFINITY) != pdPASS) {

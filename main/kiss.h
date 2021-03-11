@@ -2,6 +2,7 @@
 #ifndef __KISS_H__
 #define __KISS_H__ 1
 
+#include <stdint.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 
@@ -43,6 +44,7 @@ enum KISS_COMMAND {
     CMD_EXIT_KISS = 255,
 };
 
+void kiss_packet_send(uint8_t *data, size_t data_len);
 void kiss_process_char(kcb_t *kp, uint8_t ch);
 void kiss_process_frame(kcb_t *kp);
 #endif // __KISS_H__

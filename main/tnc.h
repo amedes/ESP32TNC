@@ -1,12 +1,9 @@
-#pragma once
 /*
  * tnc.h
  * 
  * TNC control block
  */
-#ifndef _TCB_H_
-
-#define _TCB_H_ 1
+#pragma once
 
 #include <freertos/FreeRTOS.h>
 #include <freertos/queue.h>
@@ -21,6 +18,10 @@
 //#define FX25TNCR3 1
 //#define M5ATOM 1
 //#define M5STICKC 1
+
+#ifdef FX25_ENABLE
+#include "fx25.h"
+#endif
 
 #ifdef M5ATOM
 #include "m5atom.h"
@@ -69,9 +70,14 @@ enum STATE {
 
 #define AX25_FLAG 0x7e
 #define DATA_LEN 1500
+#define FX25_DATA_LEN 255
 
 #define TCB_QUEUE_LENGTH (1024 * 2)
 #define TCB_QUEUE_ITEM_SIZE sizeof(uint16_t)
+
+#ifdef FX25_ENABLE
+typedef struct FX25TAG fx25tag_t;
+#endif
 
 typedef struct TCB { // TNC Control Block
     //QueueHandle_t queue; // send data to modem
@@ -89,6 +95,21 @@ typedef struct TCB { // TNC Control Block
     int data_cnt;
     uint8_t data_byte;
     uint8_t data_bit_cnt;
+
+#ifdef FX25_ENABLE
+    // FX.25 variables
+    uint8_t fx25_state;
+    uint64_t fx25_tag;
+    uint8_t fx25_data[FX25_DATA_LEN];
+    int fx25_data_cnt;
+    uint8_t fx25_data_byte;
+    uint8_t fx25_data_bit_cnt;
+    fx25tag_t const *fx25_tagp;
+    // FX.25 parameter
+    uint8_t fx25_parity; // 0: AX.25, >= 2: FX.25 number of parity bytes
+    // AX.25 packet decode time
+    uint32_t decode_time;
+#endif
 
     int pval;
     int edge;
@@ -141,5 +162,3 @@ extern const uint8_t TNC_ADC_CH[];
 extern tcb_t tcb[];
 
 void tnc_init(tcb_t *tcb, int ports);
-
-#endif // _TCB_H_

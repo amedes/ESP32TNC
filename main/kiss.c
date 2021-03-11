@@ -6,8 +6,14 @@
 
 #include "kiss.h"
 #include "tnc.h"
+#include "uart.h"
 
 static char TAG[] = "kiss";
+
+void kiss_packet_send(uint8_t *data, size_t data_len)
+{
+	xRingbufferSend(uart_rb, data, data_len, 0);
+}
 
 // process kiss frame
 void kiss_process_frame(kcb_t *kp)

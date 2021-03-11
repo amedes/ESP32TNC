@@ -83,3 +83,23 @@
 #ifdef CONFIG_M5STICKC_AUDIO
 #define M5STICKC_AUDIO 1
 #endif
+
+#ifdef CONFIG_FX25_ENABLE
+#define FX25_ENABLE 1
+#endif
+
+#ifdef CONFIG_FX25_PARITY_0
+#define FX25_PARITY_0 1
+#endif
+
+#ifdef CONFIG_FX25_PARITY_16
+#define FX25_PARITY_16 1
+#endif
+
+#ifdef CONFIG_FX25_PARITY_32
+#define FX25_PARITY_32 1
+#endif
+
+#ifdef CONFIG_FX25_PARITY_64
+#define FX25_PARITY_64 1
+#endif

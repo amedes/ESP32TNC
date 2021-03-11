@@ -12,4 +12,6 @@ idf_component_register(SRCS
 	"tnc.c"
 	"lcd_packet.c"
 	"m5tnc_logo.c"
-                    INCLUDE_DIRS "")
+	"fx25.c"
+	"fx25_decode.c"
+	INCLUDE_DIRS "")

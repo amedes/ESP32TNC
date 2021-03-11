@@ -1,8 +1,7 @@
 /*
  * timer.h
  */
-#ifndef _TIMER_H_
-#define _TIMER_H_ 1
+#pragma once
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/queue.h"
@@ -21,4 +20,3 @@ extern int timer_interrupt;
 extern int send_queue_empty;
 
 void timer_initialize(tcb_t *tcbp, int num_queue);
-#endif // _TIMER_H_

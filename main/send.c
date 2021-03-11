@@ -18,6 +18,7 @@
 #include "driver/gpio.h"
 
 #include "tnc.h"
+#include "fx25.h"
 
 #ifdef M5ATOM
 #include "m5atom.h"
@@ -28,150 +29,10 @@ static const char TAG[] = "send";
 
 #define BUSY_PORT 2
 
-<<<<<<< HEAD
 void send_bytes(tcb_t *tp, void const *data, size_t data_len)
 {
 	xRingbufferSend(tp->queue, data, data_len, portMAX_DELAY);
-=======
-// send data to modem queue
-void send_bytes(tcb_t *tp, void const *data, size_t size)
-{
-    xRingbufferSend(tp->queue, data, size, portMAX_DELAY);
->>>>>>> master
 }
-
-#if 0
-
-#ifdef USEQUEUE
-static void packet_send(tcb_t *tp, uint8_t const *buf, size_t size)
-#else
-static void packet_send(tcb_t *tp, uint8_t const *buf, size_t size)
-#endif
-{
-    uint8_t const *p = buf;
-#ifdef USEQUEUE
-    uint8_t data = 0; // data to modem
-#else
-    uint32_t data = 0; // data to modem
-#endif
-    int data_bits = 0; // number of bits
-    uint32_t fcs;
-    int count_ones = 0;
-    int insert_zero = false;
-    int do_bitstuffing = true; // 1: do bit stuffing, 0: do not
-
-    if (size <= 0) return;
-
-    fcs = crc16_le(0, buf, size); // CRC-16/X.25
-
-#define AX25_FLAG 0x7e
-
-    // send start flag
-    static const uint8_t flag = AX25_FLAG;
-
-    if (tp->port == BUSY_PORT) gpio_set_level(SEND_BUSY_PIN, 0); // free
-
-#ifdef USEQUEUE
-    xQueueSend(tp->queue, &flag, portMAX_DELAY);
-#else
-    xRingbufferSend(tp->queue, &flag, sizeof(flag), portMAX_DELAY);
-#endif
-
-    if (tp->port == BUSY_PORT) gpio_set_level(SEND_BUSY_PIN, 1); // busy
-
-    for (int i = 0; i < size + 2; i++) { // +2 means FCS and end flag
-	uint32_t bitq; // bit queue
-	int bitq_bits; // number of bits
-       
-	if (i < size) {
-	    bitq = *p++; // send data
-	    bitq_bits  = 8;
-	} else if (i == size) {
-	    bitq = fcs; // send FCS, size is 2 bytes
-	    bitq_bits  = 16;
-	} else {
-	    bitq = 0x7e; // send end flag
-	    bitq_bits = 8;
-	    do_bitstuffing = false; // do not bit stuffing
-	}
-
-	//while (bitq > 1) { // bit queue is not empty
-	while (bitq_bits-- > 0) {
-	    int bit;
-
-	    if (insert_zero) {
-
-		bit = 0;
-		insert_zero = false;
-
-	    } else {
-
-		bit = bitq & 1;
-		bitq >>= 1;
-
-	    	// bit stuffing
-	    	if (do_bitstuffing) {
-
-		   if (bit) {
-
-#define BIT_STUFFING_BITS 5
-		    
-		    	if (++count_ones >= BIT_STUFFING_BITS) { // need bit stuffing
-			    insert_zero = true;
-			    bitq_bits++;
-			    count_ones = 0;
-			}
-
-		   } else {
-		    count_ones = 0;
-		   }
-
-		}
-
-	    }
-
-	    //data >>= 1;
-	    //data |= bit << 7; // insert the bit to MSb
-	    data |= bit << data_bits;
-
-#ifdef USEQUEUE
-	    if (++data_bits >= 8) { // filled all 8 bits
-#else
-	    if (++data_bits >= 32) { // filled all 32 bits
-#endif
-
-		if (tp->port == BUSY_PORT) gpio_set_level(SEND_BUSY_PIN, 0); // free
-
-#ifdef USEQUEUE
-	    	xQueueSend(tp->queue, &data, portMAX_DELAY);
-#else	
-	    	xRingbufferSend(tp->queue, &data, sizeof(data), portMAX_DELAY);
-#endif
-		if (tp->port == BUSY_PORT) gpio_set_level(SEND_BUSY_PIN, 1); // busy
-
-	    	data = 0;
-		data_bits = 0;
-
-	    }
-	}
-    }
-
-    if (data_bits > 0) { // there is a fraction of a byte
-
-	if (tp->port == BUSY_PORT) gpio_set_level(SEND_BUSY_PIN, 0); // free
-
-#ifdef USEQUEUE
-	xQueueSend(tp->queue, &data, portMAX_DELAY);
-#else
-	int byte_size = (data_bits + 7) / 8;
-	xRingbufferSend(tp->queue, &data, byte_size, portMAX_DELAY);
-#endif
-
-	if (tp->port == BUSY_PORT) gpio_set_level(SEND_BUSY_PIN, 1); // busy
-
-    }
-}
-#else
 
 static void packet_send_split(tcb_t *tp, uint8_t *buf[2], size_t size[2])
 {
@@ -278,8 +139,6 @@ static void packet_send_split(tcb_t *tp, uint8_t *buf[2], size_t size[2])
 
 }
 
-#endif
-
 static void send_task(void *arg)
 {
     tcb_t *tp = (tcb_t *)arg; // pointer to TCB
@@ -305,7 +164,7 @@ static void send_task(void *arg)
 	//ESP_LOGI(TAG, "xRingbufferReceiveSplit(), size = %d, port = %d", itemsize[0] + (item[1]) ? itemsize[1] : 0, tp->port);
 
 #ifdef FX25TNCR2
-	gpio_set_level(tp->sta_led_pin, 1);
+	gpio_set_level(tp->sta_led_pin, 1); // STA LED on
 #endif
 
 	// begin to send packet
@@ -335,22 +194,21 @@ static void send_task(void *arg)
 	    } // while (!tp->fullDuplex)
 
 	    // transmitter on
-#ifdef M5ATOM
-	    m5atom_led_set_level(M5ATOM_LED_RED, 1);
-#endif
+
 #ifndef M5STICKC_AUDIO
-	    gpio_set_level(tp->ptt_pin, 1);
+	    gpio_set_level(tp->ptt_pin, 1); // PTT on
+#endif
+#ifdef M5ATOM
+	    m5atom_led_set_level(M5ATOM_LED_RED, 1); // PTT LED on
 #endif
 	    tp->ptt = true;
 
 	    ESP_LOGD(TAG, "PTT on, gpio = %d, port = %d", tp->ptt_pin, tp->port);
-	    
 	    ESP_LOGD(TAG, "sending preamble, TXDELAY = %d, bytes = %d, port = %d", tp->TXDELAY, TXD_BYTES(tp->TXDELAY), tp->port);
 
 	    // wait for TXDELAY
 	    for (int i = 0; i < TXD_BYTES(tp->TXDELAY); i++) {
 		uint8_t data = 0x7e; // flag (7E)
-		//uint8_t data = 0x55; // flag (7E)
 		
 		send_bytes(tp, &data, sizeof(data));
 	    }
@@ -359,7 +217,23 @@ static void send_task(void *arg)
 
 	} // if (!tp->ptt)
 
+#ifdef FX25_ENABLE
+	if (tp->fx25_parity > 0) {
+#ifdef DEBUG
+	    ESP_LOGI(TAG, "send FX.25, parity = %d", tp->fx25_parity);
+#endif
+	    if (fx25_send_packet(tp, item, itemsize, tp->fx25_parity) != 0) {
+#ifdef DEBUG
+		    ESP_LOGI(TAG, "send FX.25 packet fail");
+#endif
+	    	packet_send_split(tp, item, itemsize);		
+		}
+	} else {
+	    packet_send_split(tp, item, itemsize);
+	}
+#else
 	packet_send_split(tp, item, itemsize);
+#endif
 
 	// return item
 	vRingbufferReturnItem(tp->ringbuf, item[0]);
