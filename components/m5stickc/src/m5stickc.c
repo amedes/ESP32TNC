@@ -678,6 +678,9 @@ static void sysint_task(void *arg)
     static uint32_t m5a_time = 0;
     static uint32_t m5b_time = 0;
 
+    // prevent GPIO39 glitch bug
+    m5b_time = xTaskGetTickCount();
+
     while (1) {
 	if (xQueueReceive(queue, &item, SYSINT_TIMEOUT) != pdTRUE) {
 	    //ESP_LOGW(TAG, "xQueueReceive() fail");
@@ -754,6 +757,7 @@ static void sysint_task(void *arg)
 			beep(BEEP_HIGH, BEEP_SHORT, false);
 			update_axp192_info();
 			print_battery_info(true);
+			ESP_LOGI(TAG, "EVENT_M5BUTTONB press");
 		    }
 		    m5b_time = t;
 		}
