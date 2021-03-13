@@ -44,7 +44,9 @@
 #define DELAY_DIVIDEND 325
 #define DELAY_DIVISOR 728866
 
-#define SAMPLING_RATE 20184
+//#define SAMPLING_RATE 20184
+//#define SAMPLING_RATE 13200
+#define SAMPLING_RATE (1200*11)
 
 #define DELAYED_N ((DELAY_DIVIDEND * SAMPLING_RATE + DELAY_DIVISOR/2) / DELAY_DIVISOR)
 
@@ -111,10 +113,12 @@ typedef struct TCB { // TNC Control Block
     uint32_t decode_time;
 #endif
 
+    // decode bit
     int pval;
     int edge;
+    int adjust;
 
-// audio signal processing
+    // audio signal processing
     uint16_t avg;
     int avg_sum;
 

@@ -47,6 +47,8 @@
 //I2S built-in ADC channel
 #define I2S_ADC_CHANNEL           ADC1_CHANNEL_0 // GPIO39
 
+#define ESP_INTR_FLAG_DEFAULT	0
+
 /*
  * i2s initialize
  */
@@ -71,7 +73,8 @@ void i2s_init(tcb_t tcb[])
 #endif
 	    //.channel_format = I2S_CHANNEL_FMT_RIGHT_LEFT,
 	    .channel_format = I2S_CHANNEL_FMT_ONLY_LEFT,
-	    .intr_alloc_flags = ESP_INTR_FLAG_LEVEL1,
+	    //.intr_alloc_flags = ESP_INTR_FLAG_LEVEL1,
+	    .intr_alloc_flags = ESP_INTR_FLAG_DEFAULT,
 	    .dma_buf_count = I2S_DMA_BUF_COUNT,
 	    .dma_buf_len = I2S_DMA_BUF_LEN,
 #ifdef M5STICKC_AUDIO

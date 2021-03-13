@@ -145,6 +145,16 @@ static void send_packet_task(void *arg)
 
 void app_main(void)
 {
+#ifdef M5STICKC
+    // M5StickC library initialize
+    m5stickc_init();
+
+    decode_image(lcd.spi, m5tnc_logo);
+
+    static const uint8_t s[] = "M5TNC for M5StickC Plus\n";
+    tty_write(s, sizeof(s) - 1);
+#endif
+
     // initialize Bell202 modem
     bell202_init();
 
@@ -177,15 +187,6 @@ void app_main(void)
     }
 #endif
 
-#ifdef M5STICKC
-    // M5StickC library initialize
-    m5stickc_init();
-
-    decode_image(lcd.spi, m5tnc_logo);
-
-    static const uint8_t s[] = "M5TNC for M5StickC Plus\n";
-    tty_write(s, sizeof(s) - 1);
-#endif
 
     // initialize TNC control block and start TNC decode task
     tnc_init(tcb, TNC_PORTS);

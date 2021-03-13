@@ -189,8 +189,16 @@ static void decode(tcb_t *tp, int val)
 {
 	tp->edge++; // count between edges
 
-	if (val != tp->pval) {																		   // detect edge
+	if (val != tp->pval) { // detect edge
+
+#define WIDTH_ADJUST 1
+
+#ifdef WIDTH_ADJUST
+		int bits = ((tp->edge + tp->adjust) * BAUD_RATE + SAMPLING_RATE / 2) / SAMPLING_RATE; // calculate number of bits
+        tp->adjust = (tp->edge - bits * (SAMPLING_RATE / BAUD_RATE)) / 2; // calculate next adjustment
+#else
 		int bits = (tp->edge * BAUD_RATE + SAMPLING_RATE / 2) / SAMPLING_RATE; // calculate number of bits
+#endif
 
 #if 0
 		if (tp->state == DATA && tp->edge < 3) {

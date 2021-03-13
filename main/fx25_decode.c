@@ -25,10 +25,8 @@ enum FX25_STATE {
 
 #define TAG "fx25_decode"
 
-static int bit_count(uint64_t bits)
+static inline int bit_count(uint64_t bits)
 {
-    if (bits == 0) return 0;
-
 #ifdef __XTENSA__
     uint32_t t0 = (uint32_t)bits;
     uint32_t t1 = (uint32_t)(bits >> 32);
