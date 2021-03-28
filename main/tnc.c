@@ -75,7 +75,11 @@ static void read_i2s_adc(void *arg)
 
 		for (int i = 0; i < size / sizeof(uint16_t); i++)
 		{
+#if TNC_PORTS == 1
+			uint16_t adc = buf[i ^ 1];
+#else
 			uint16_t adc = buf[i];
+#endif
 
 #ifdef M5STICKC_AUDIO
 			demodulator(&tcb[0], (int16_t)adc + 32768);
