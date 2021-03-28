@@ -46,7 +46,7 @@
 
 //#define SAMPLING_RATE 20184
 //#define SAMPLING_RATE 13200
-#define SAMPLING_RATE (1200*11)
+#define SAMPLING_RATE (1200*15)
 
 #define DELAYED_N ((DELAY_DIVIDEND * SAMPLING_RATE + DELAY_DIVISOR/2) / DELAY_DIVISOR)
 
@@ -114,8 +114,8 @@ typedef struct TCB { // TNC Control Block
 #endif
 
     // decode bit
-    int pval;
-    int edge;
+    uint8_t pval;
+    uint8_t nrzi;
     int adjust;
 
     // audio signal processing
@@ -160,6 +160,9 @@ typedef struct TCB { // TNC Control Block
     filter_t *bpf;
     filter_t *lpf;
     filter_t *avgf;
+
+    // PLL
+    int32_t pll_clock;
 } tcb_t;
 
 extern const uint8_t TNC_ADC_CH[];

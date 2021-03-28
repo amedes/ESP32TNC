@@ -185,39 +185,32 @@ static void decode_bit(tcb_t *tp, uint8_t bit)
 	}
 }
 
+#define PLL_DIV (SAMPLING_RATE / BAUD_RATE)
+#define PLL_INC	((1LLU << 32) / PLL_DIV)
+
 static void decode(tcb_t *tp, int val)
 {
-	tp->edge++; // count between edges
+	int32_t prev_clk = tp->pll_clock;
+
+	tp->pll_clock += PLL_INC;
+
+	if (tp->pll_clock < prev_clk) {
+		int bit;
+
+		// decode NRZI
+		bit = (val == tp->nrzi) ? 1 : 0;
+		tp->nrzi = val;
+
+		// process one bit
+		decode_bit(tp, bit);
+#ifdef FX25_ENABLE
+		fx25_decode_bit(tp, bit);
+#endif
+	}
 
 	if (val != tp->pval) { // detect edge
 
-#define WIDTH_ADJUST 1
-
-#ifdef WIDTH_ADJUST
-		int bits = ((tp->edge + tp->adjust) * BAUD_RATE + SAMPLING_RATE / 2) / SAMPLING_RATE; // calculate number of bits
-        tp->adjust = (tp->edge - bits * (SAMPLING_RATE / BAUD_RATE)) / 2; // calculate next adjustment
-#else
-		int bits = (tp->edge * BAUD_RATE + SAMPLING_RATE / 2) / SAMPLING_RATE; // calculate number of bits
-#endif
-
-#if 0
-		if (tp->state == DATA && tp->edge < 3) {
-	    	ESP_LOGI(TAG, "edge = %d, port = %d", tp->edge, tp->port);
-		}
-#endif
-
-		// process multiple bits, decode NRZI
-		decode_bit(tp, 0);
-#ifdef FX25_ENABLE
-		fx25_decode_bit(tp, 0);
-#endif
-		while (--bits > 0) {
-			decode_bit(tp, 1);
-#ifdef FX25_ENABLE
-			fx25_decode_bit(tp, 1);
-#endif
-		}
-		tp->edge = 0;
+		tp->pll_clock -= tp->pll_clock >> 2;  // (1 - 1/4) = 3/4 = 0.75
 		tp->pval = val;
 	}
 }
