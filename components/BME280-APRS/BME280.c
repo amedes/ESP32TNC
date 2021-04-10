@@ -17,8 +17,12 @@
 /* 2021.03.05      Add               */
 /* 2021.03.11      Clean up          */
 
+#include <freertos/FreeRTOS.h>
+#include <freertos/task.h>
+#include <freertos/ringbuf.h>
+
 #include "config.h"
-#include "fx25.h"     /* for fx25_send_packet() */
+#include "tnc.h"
 #include "BME280.h"   /* for BE280 test */
 
 #define PKT_LEN 1024
@@ -135,7 +139,7 @@ void BME280_aprs_task(void *arg)
     // for debug 2021.03.05
     int k = 0;
     for (k=0; k<i; k++) {
-    printf(" %2x", ax25_data[k]);
+        printf(" %2x", ax25_data[k]);
     }
     printf(" i=%d", i);
     printf(" k=%d\n", k);
@@ -145,13 +149,14 @@ void BME280_aprs_task(void *arg)
 #if 0
     fx25_send_packet(ax25_data, len, 0, tnc_mode); // 0:do not wait for Queuing, default TNC mode
 #else
+
     {
         tcb_t *tp = &tcb[BME280_APRS_PORT];
-        uint8_t *item[2] = { ax25_data, NULL };
-        size_t size[2] = { len, 0 };
 
 #ifdef FX25_ENABLE
-        fx25_send_packet(tp, item, size, tp->fx25_parity);
+        if (xRingbufferSend(tp->ringbuf, ax25_data, len, portMAX_DELAY) != pdTRUE) {
+	        printf("BME APRS: xRingbufferSend() fail, port = %d\n", tp->port);
+	    }
 #endif
     }
 #endif
