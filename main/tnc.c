@@ -35,9 +35,14 @@
 #include "send.h"
 #include "wifi.h"
 #include "filter.h"
+#include "fx25_decode.h"
 
 #ifdef M5ATOM
 #include "m5atom.h"
+#endif
+
+#ifdef ENABLE_TCM3105
+#include "tcm3105.h"
 #endif
 
 //#define TNC_PORTS 6 // move to tcb.h
@@ -55,6 +60,127 @@ tcb_t *adc_ch_tcb[8];
 
 #define I2S_BUSY_PIN GPIO_NUM_26
 #define SEND_BUSY_PIN GPIO_NUM_27
+
+#ifdef ENABLE_TCM3105
+
+#define BIT_DURATION ((80 * 1000 * 1000 + BAUD_RATE/2) / BAUD_RATE)
+#define MAX_DURATION (32 * BIT_DURATION)
+
+// read capture queue
+static void read_cap_queue(void *arg)
+{
+	uint32_t ts;
+	tcb_t *tp = (tcb_t *)arg;
+
+	while (1) {
+		//gpio_set_level(tp->cdt_led_pin, !tp->cdt_led_on);
+		if (xQueueReceive(cap_queue, &ts, portMAX_DELAY) != pdTRUE) {
+			ESP_LOGW(TAG, "read capture queue fail");
+			continue;
+		}
+		//gpio_set_level(tp->cdt_led_pin, tp->cdt_led_on);
+
+		int duration = (uint32_t)(ts - tp->prev_ts);
+		tp->prev_ts = ts;
+
+		if (duration > MAX_DURATION) { // may be something wrong
+#ifdef DEBUG
+#ifdef ENABLE_FX25
+			ESP_LOGI(TAG, "duration = %d, pll_adj = %d, state = %d, fx25_state = %d", duration / BIT_DURATION, tp->pll_adj, tp->state, tp->fx25_state);
+#else
+			ESP_LOGI(TAG, "duration = %d, pll_adj = %d, state = %d", duration / BIT_DURATION, tp->pll_adj, tp->state);
+#endif
+#endif
+			tp->pll_adj = 0;
+			tp->state = FLAG;
+#ifdef FX25_ENABLE
+			tp->fx25_state = FX25_FINDTAG;
+#endif
+			continue;
+		}
+
+		duration += tp->pll_adj;
+		int timing = BIT_DURATION/2;
+		int edge = ts & 1; // 0: positive edge, 1: negative edge
+
+		if (timing <= duration) {
+			int bit;
+
+			do {
+				bit = (edge == tp->nrzi) ? 1 : 0;
+				tp->nrzi = edge;
+				decode_bit(tp, bit);
+#ifdef FX25_ENABLE
+				fx25_decode_bit(tp, bit);
+#endif
+				timing += BIT_DURATION;
+			} while (timing <= duration);
+
+			tp->pll_adj = duration - timing + BIT_DURATION/2;
+			tp->pll_adj -= tp->pll_adj >> 2; // * (3/4)
+			
+		}
+		continue;
+
+#if 0
+		if (duration + tp->pll_adj < BIT_DURATION/2) { // may be noise
+			tp->pll_adj += duration;
+			continue;
+		}
+#endif
+
+#if 1
+
+#if 0
+		int bits = (duration + BIT_DURATION/2) / BIT_DURATION;
+#else
+		int bits = (duration + tp->pll_adj + BIT_DURATION/2) / BIT_DURATION;
+		tp->pll_adj = duration - bits * BIT_DURATION;
+		tp->pll_adj -= tp->pll_adj >> 2; // * (3/4)
+		//tp->pll_adj >>= 1; // * (1/2)
+#endif
+
+		decode_bit(tp, 0);
+#ifdef FX25_ENABLE
+		fx25_decode_bit(tp, 0);
+#endif
+		while (--bits > 0) {
+			decode_bit(tp, 1);
+#ifdef FX25_ENABLE
+			fx25_decode_bit(tp, 1);
+#endif
+		}
+#else
+		// decode NRZI
+		if (duration >= BIT_DURATION/2 /*- tp->pll_adj*/) {
+			decode_bit(tp, 0);
+#ifdef FX25_ENABLE
+			fx25_decode_bit(tp, 0);
+#endif
+			duration -= BIT_DURATION/2 /*- tp->pll_adj*/;
+		
+			while (duration >= BIT_DURATION) {
+				decode_bit(tp, 1);
+#ifdef FX25_ENABLE
+				fx25_decode_bit(tp, 1);
+#endif
+				duration -= BIT_DURATION;
+			}
+		}
+
+		// PLL calculation
+		tp->pll_adj = duration - BIT_DURATION/2;
+		tp->pll_adj -= tp->pll_adj >> 2; // (1 - 1/4) = 3/4 = 0.75
+		if (abs(tp->pll_adj) > BIT_DURATION/2) {
+			tp->pll_adj = 0;
+		}
+#endif
+	}
+}
+
+#endif // ENABLE_TCM3105
+
+#ifdef ENABLE_SOFTMODEM
 
 // read adc data task
 static void read_i2s_adc(void *arg)
@@ -97,14 +223,14 @@ static void read_i2s_adc(void *arg)
 	}
 }
 
+#endif // ENABLE_SOFTMODEM
+
 static const uint8_t CDT_LED_PIN[] = {
-#ifdef FX25TNCR2
+#if defined(FX25TNCR1)
+	GPIO_LED_PIN,
+#elif defined(FX25TNCR2)
 	14,
 	19,
-	2,
-	2,
-	2,
-	2,
 #elif defined(FX25TNCR3)
 	15,
 	2,
@@ -112,6 +238,8 @@ static const uint8_t CDT_LED_PIN[] = {
 	4,
 	0,
 	4,
+#elif defined(FX25TNCR4)
+	15, 2,
 #elif defined(M5ATOM)
 	-1, -1, // using internal RGB LED with RMT SoC
 #elif defined(M5STICKC)
@@ -123,8 +251,10 @@ static const uint8_t CDT_LED_PIN[] = {
 
 // LED on values
 static const uint8_t CDT_LED_ON[] = {
-#ifdef FX25TNCR2
-	0, 0, // Green LED drived with open drain
+#if defined(FX25TNCR1)
+	1,
+#elif defined(FX25TNCR2)
+	0, 0, // CDT LED drived with open drain
 #elif defined(FX25TNCR3)
 	1,
 	1,
@@ -132,6 +262,8 @@ static const uint8_t CDT_LED_ON[] = {
 	1,
 	1,
 	1,
+#elif defined(FX25TNCR4)
+	1, 1,
 #elif defined(M5STICKC) || defined(M5ATOM)
 	0, 0,	// not used this value
 #else
@@ -145,7 +277,9 @@ static const uint8_t CDT_LED_ON[] = {
 };
 
 static const int8_t PTT_PIN[] = {
-#if defined(FX25TNCR2) || defined(FX25TNCR3)
+#if defined(FX25TNCR1)
+	GPIO_PTT_PIN,
+#elif defined(FX25TNCR2) || defined(FX25TNCR3) || defined(FX25TNCR4)
 	23,
 	22,
 	21,
@@ -200,7 +334,7 @@ static const uint8_t FX25_PARITY[] = {
 // index: port No. 0-5
 // value: adc channel
 const uint8_t TNC_ADC_CH[] = {
-#if defined(FX25TNCR2) || defined(FX25TNCR3)
+#if defined(FX25TNCR2) || defined(FX25TNCR3) || defined(FX25TNCR4)
 	0, 3, 6, 7, 4, 5, // GPIO 36, 39, 34, 35, 32, 33,
 #elif defined(M5ATOM)
 	5, 6,	// GPIO 33, 34
@@ -353,9 +487,12 @@ void tnc_init(tcb_t *tcb, int ports)
 			ESP_LOGI(TAG, "port = %d, cdt led gpio = %d", tp->port, tp->cdt_led_pin);
 		}
 
+#ifdef DEBUG
+		ESP_LOGI(TAG, "ptt_pin = %d, port = %d", tp->ptt_pin, tp->port);
+#endif
 		// PTT gpio initialize
-		if (tp->ptt_pin >= 0)
-		{
+		if (tp->ptt_pin >= 0) {
+
 			ESP_ERROR_CHECK(gpio_reset_pin(tp->ptt_pin));
 			ESP_ERROR_CHECK(gpio_set_direction(tp->ptt_pin, GPIO_MODE_OUTPUT));
 			ESP_ERROR_CHECK(gpio_set_level(tp->ptt_pin, 0));
@@ -363,11 +500,21 @@ void tnc_init(tcb_t *tcb, int ports)
 			ESP_LOGI(TAG, "port = %d, ptt gpio = %d", tp->port, tp->ptt_pin);
 		}
 
-		// STA LED gpio initialize
 #ifdef FX25TNCR2
+		// STA LED gpio initialize
 		gpio_reset_pin(tp->sta_led_pin);
 		gpio_set_direction(tp->sta_led_pin, GPIO_MODE_OUTPUT);
 		gpio_set_level(tp->sta_led_pin, 0);
+#endif
+
+#ifdef ENABLE_TCM3105
+		// enable TCM3105
+		if (i == TCM3105_PORT) {
+			tp->enable_tcm3105 = true;
+			ESP_LOGI(TAG, "enable_tcm3105: port = %d", TCM3105_PORT);
+		} else {
+			tp->enable_tcm3105 = false;
+		}
 #endif
 
 		tp->cdt_sem = xSemaphoreCreateBinary();
@@ -391,8 +538,15 @@ void tnc_init(tcb_t *tcb, int ports)
 		filter_init(tp->bpf, bpf_an, FIR_BPF_N);
 	}
 
-	// do decode
+	// create decode task
+#ifdef ENABLE_TCM3105
+	ESP_LOGI(TAG, "create raad_cap_queue task");
+	assert(xTaskCreatePinnedToCore(read_cap_queue, "read capture q", 4096, &tcb[TCM3105_PORT], tskIDLE_PRIORITY + 5, NULL, 1) == pdPASS); // pinned CPU 1
+#endif
+
+#ifdef ENABLE_SOFTMODEM
 	assert(xTaskCreatePinnedToCore(read_i2s_adc, "read i2s", 4096, NULL, tskIDLE_PRIORITY + 5, NULL, 1) == pdPASS); // pinned CPU 1
+#endif
 }
 
 //#define USEQUEUE 1

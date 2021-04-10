@@ -202,15 +202,15 @@ static void send_task(void *arg)
 	    m5atom_led_set_level(M5ATOM_LED_RED, 1); // PTT LED on
 #endif
 	    tp->ptt = true;
-
-	    ESP_LOGD(TAG, "PTT on, gpio = %d, port = %d", tp->ptt_pin, tp->port);
-	    ESP_LOGD(TAG, "sending preamble, TXDELAY = %d, bytes = %d, port = %d", tp->TXDELAY, TXD_BYTES(tp->TXDELAY), tp->port);
-
+#ifdef DEBUG
+	    ESP_LOGI(TAG, "PTT on, gpio = %d, port = %d", tp->ptt_pin, tp->port);
+	    ESP_LOGI(TAG, "sending preamble, TXDELAY = %d, bytes = %d, port = %d", tp->TXDELAY, TXD_BYTES(tp->TXDELAY), tp->port);
+#endif
 	    // wait for TXDELAY
 	    for (int i = 0; i < TXD_BYTES(tp->TXDELAY); i++) {
-		uint8_t data = 0x7e; // flag (7E)
+			uint8_t data = 0x7e; // flag (7E)
 		
-		send_bytes(tp, &data, sizeof(data));
+			send_bytes(tp, &data, sizeof(data));
 	    }
 
 	    //ESP_LOGI(TAG, "sent preamble, port = %d", tp->port);
@@ -257,7 +257,7 @@ void send_init(tcb_t tcb[])
     	assert(tcb[i].queue != NULL);
 
 	// input queue
-	tcb[i].ringbuf = xRingbufferCreate(RINGBUF_SIZE, RINGBUF_TYPE_ALLOWSPLIT);
+		tcb[i].ringbuf = xRingbufferCreate(RINGBUF_SIZE, RINGBUF_TYPE_ALLOWSPLIT);
     	assert(tcb[i].ringbuf != NULL);
 
 	// create send task

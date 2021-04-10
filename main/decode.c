@@ -23,6 +23,7 @@
 #include "bell202.h"
 #include "i2s_adc.h"
 #include "uart.h"
+#include "decode.h"
 
 #ifdef FX25_ENABLE
 #include "fx25_decode.h"
@@ -115,7 +116,7 @@ static void output_packet(tcb_t *tp, uint8_t data[], int len)
 //#define AX25_MIN_PKT_SIZE (7 * 2 + 1 + 1 + 2) // call sign * 2 + control + PID + FCS
 #define AX25_FLAG_BITS 6
 
-static void decode_bit(tcb_t *tp, uint8_t bit)
+void decode_bit(tcb_t *tp, uint8_t bit)
 {
 	//static uint8_t state = FLAG;
 	//static uint8_t flag = 0;

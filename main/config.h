@@ -6,6 +6,7 @@
 
 #ifdef CONFIG_M5ATOM
 #define M5ATOM 1
+#define ENABLE_SOFTMODEM 1
 #endif
 
 #ifdef CONFIG_M5ATOM_PORTS
@@ -14,16 +15,36 @@
 
 #ifdef CONFIG_M5STICKC
 #define M5STICKC 1
+#define ENABLE_SOFTMODEM 1
+#endif
+
+#ifdef CONFIG_FX25TNCR1
+#define FX25TNCR1 1
+#define ENABLE_TCM3105 1
+#define TCM3105_PORT 0
 #endif
 
 #ifdef CONFIG_FX25TNCR2
 #define FX25TNCR2 1
+#define ENABLE_SOFTMODEM 1
 #endif
 
 #ifdef CONFIG_FX25TNCR3
 #define FX25TNCR3 1
+#define ENABLE_SOFTMODEM 1
 #endif
 
+#ifdef CONFIG_FX25TNCR4
+#define FX25TNCR4 1
+#define ENABLE_SOFTMODEM 1
+#endif
+
+#ifdef CONFIG_ENABLE_TCM3105
+#define ENABLE_TCM3105 1
+#define TCM3105_PORT 1
+#endif
+
+// number of suported ports (supported 2..6 ports)
 #ifdef CONFIG_FX25TNCR3_PORTS
 #define FX25TNCR3_PORTS CONFIG_FX25TNCR3_PORTS
 #endif
@@ -102,4 +123,53 @@
 
 #ifdef CONFIG_FX25_PARITY_64
 #define FX25_PARITY_64 1
+#endif
+
+#ifdef FX25TNCR4
+#define GPIO_TXD_PIN 21
+#define GPIO_RXD_PIN 19
+#define GPIO_PTT_PIN 22
+#define GPIO_LED_PIN 2
+#define GPIO_CDT_PIN 18
+#define GPIO_ENABLE_TCM3105_PIN 5
+#endif
+
+#ifdef CONFIG_GPIO_TXD_PIN
+#define GPIO_TXD_PIN CONFIG_GPIO_TXD_PIN
+#endif
+
+#ifdef CONFIG_GPIO_RXD_PIN
+#define GPIO_RXD_PIN CONFIG_GPIO_RXD_PIN
+#endif
+
+#ifdef CONFIG_GPIO_PTT_PIN
+#define GPIO_PTT_PIN CONFIG_GPIO_PTT_PIN
+#endif
+
+#ifdef CONFIG_GPIO_LED_PIN
+#define GPIO_LED_PIN CONFIG_GPIO_LED_PIN
+#endif
+
+#ifdef CONFIG_GPIO_CDT_PIN
+#define GPIO_CDT_PIN CONFIG_GPIO_CDT_PIN
+#endif
+
+#ifndef GPIO_TXD_PIN
+#define GPIO_TXD_PIN 0
+#endif
+
+#ifndef GPIO_RXD_PIN
+#define GPIO_RXD_PIN 0
+#endif
+
+#ifndef GPIO_PTT_PIN
+#define GPIO_PTT_PIN 0
+#endif
+
+#ifndef GPIO_LED_PIN
+#define GPIO_LED_PIN 0
+#endif
+
+#ifndef GPIO_CDT_PIN
+#define GPIO_CDT_PIN 0
 #endif

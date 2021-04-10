@@ -14,4 +14,5 @@ idf_component_register(SRCS
 	"m5tnc_logo.c"
 	"fx25.c"
 	"fx25_decode.c"
+	"tcm3105.c"
 	INCLUDE_DIRS "")

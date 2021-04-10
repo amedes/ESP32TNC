@@ -27,10 +27,15 @@
 #include "m5atom.h"
 #endif
 
-#ifdef FX25TNCR2
+#if defined(FX25TNCR1)
+#define TNC_PORTS 1
+#define TCM3105_PORT 0  // port No. of TCM3105
+#elif defined(FX25TNCR2)
 #define TNC_PORTS 2 // number of ports
 #elif defined(FX25TNCR3)
 #define TNC_PORTS FX25TNCR3_PORTS // number of ports 1..6
+#elif defined(FX25TNCR4)
+#define TNC_PORTS 2
 #elif defined(M5ATOM)
 #define TNC_PORTS M5ATOM_PORTS	// 1..2
 #elif defined(M5STICKC)
@@ -64,11 +69,6 @@
 
 
 //#define DELAYED_N (int)(SAMPLING_RATE * DECODE_DELAY + 0.5)
-
-enum STATE {
-	FLAG = 0,
-	DATA
-};
 
 #define AX25_FLAG 0x7e
 #define DATA_LEN 1500
@@ -163,6 +163,12 @@ typedef struct TCB { // TNC Control Block
 
     // PLL
     int32_t pll_clock;
+
+#ifdef ENABLE_TCM3105
+    int pll_adj;
+    uint32_t prev_ts;
+    uint8_t enable_tcm3105; // enable TCM3105 for the port if true
+#endif
 } tcb_t;
 
 extern const uint8_t TNC_ADC_CH[];

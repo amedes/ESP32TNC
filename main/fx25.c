@@ -239,7 +239,7 @@ int fx25_bit_stuffing(uint8_t *buf[2], size_t size[2], uint8_t buff[], int buff_
     }
 
 #ifdef DEBUG
-    ESP_LOGI(TAG, "fx25_bit_stffing(): bit_len = %d, buff_index = %d", bit_len, buff_index);
+    ESP_LOGI(TAG, "fx25_bit_stuffing(): bit_len = %d, buff_index = %d", bit_len, buff_index);
 #endif
 
     return bit_len;
@@ -315,12 +315,13 @@ int fx25_send_packet(tcb_t *tp, uint8_t *data[2], size_t data_len[2], int parity
 
 #ifdef DEBUG
 	ESP_LOGI(TAG, "fx25_send_packet(): RS(%d, %d)", tagp->rs_code, tagp->rs_info);
+#if 0
 	for (int i = 0; i < tagp->rs_code; i++) {
 	    printf("%02x, ", buf[i]);
 	    if (i % 16 == 15) printf("\n");
 	}
 	printf("\n");
-
+#endif
 #if 0
 	// add error
 	for (int i = 0; i < (tagp->rs_code - tagp->rs_info) / 2; i++) {

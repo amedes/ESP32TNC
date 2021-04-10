@@ -14,11 +14,7 @@
 #include "rs8.h"
 #include "tnc.h"
 #include "kiss.h"
-
-enum FX25_STATE {
-    FX25_FINDTAG  = 0,
-    FX25_DATA,
-};
+#include "fx25_decode.h"
 
 #define AX25_FLAG 0x7e
 #define FX25_TAG_MATCH 8

@@ -20,18 +20,14 @@
 
 #define TAG "I2S"
 
-//#define I2S_DAC_OUTPUT 1
-#define MULTI_CHANNEL 1
-//#define ENABLE_ADC2 1
-
 //i2s number
 #define I2S_NUM           (0)
 
 //i2s sample rate
-#ifdef ENABLE_ADC2
-#define I2S_SAMPLE_RATE   (SAMPLING_RATE * TNC_PORTS * 2)
+#ifdef ENABLE_TCM3105
+#define I2S_SAMPLE_RATE   (SAMPLING_RATE * (TNC_PORTS-1)) // reduce sample rate for TCM3105
 #else
-#define I2S_SAMPLE_RATE   (SAMPLING_RATE * TNC_PORTS * 1)
+#define I2S_SAMPLE_RATE   (SAMPLING_RATE * TNC_PORTS)
 #endif
 
 //#define I2S_DMA_BUF_COUNT	2
@@ -102,7 +98,7 @@ void i2s_init(tcb_t tcb[])
 	// set down sample rate to 8 * 16
 	ESP_ERROR_CHECK(i2s_set_pdm_rx_down_sample(i2s_num, I2S_PDM_DSR_16S));
 
-#else
+#else // !M5STICKC_AUDIO
 
 	//init ADC pad
 	ESP_ERROR_CHECK(i2s_set_adc_mode(I2S_ADC_UNIT, I2S_ADC_CHANNEL));
@@ -124,13 +120,18 @@ void i2s_init(tcb_t tcb[])
 	// channel, attenation, bit width
 	SYSCON.saradc_sar1_patt_tab[0] = ((ADC1_CHANNEL_0 << 4) | (ADC_WIDTH_BIT_12 << 2) | ADC_ATTEN_DB_0) << 24;
 
-#ifdef MULTI_CHANNEL
+	int num_ports = 0;
 	// setup multi-channel scanning mode
-	int ch;
-
 	for (int i = 0; i < TNC_PORTS; i++) {
 
-	    ch = TNC_ADC_CH[i];
+#ifdef ENABLE_TCM3105
+		if (i == TCM3105_PORT) {
+			// enable TCM3105 for the port, skip ADC setting 
+			continue;
+		}
+#endif
+
+	    int ch = TNC_ADC_CH[i];
 	    ESP_LOGI(TAG, "TNC port %d, adc channel %d", i, ch);
 
 	    SYSCON.saradc_sar1_patt_tab[i / 4] &= ~(0xff << (3 - (i % 4)) * 8);
@@ -140,17 +141,17 @@ void i2s_init(tcb_t tcb[])
 	    SYSCON.saradc_sar1_patt_tab[i / 4] |= ((ch << 4) | (ADC_WIDTH_BIT_12 << 2) | ADC_ATTEN_DB_0) << (3 - (i % 4)) * 8; // attenation 0dB, input voltage 1.1 Vpp
 #endif
 	    ESP_LOGI(TAG, "sart1_patt_tab[%d] = %08x", i/4, SYSCON.saradc_sar1_patt_tab[i/4]);
-	    ch++;
+		num_ports++;
 	}
-    	SYSCON.saradc_ctrl.sar1_patt_len = TNC_PORTS - 1; // set pattern length
+
+	SYSCON.saradc_ctrl.sar1_patt_len = num_ports - 1; // set pattern length
 
 	// adc1 controlled by DIG
-        SENS.sar_read_ctrl.sar1_dig_force = true;
+	SENS.sar_read_ctrl.sar1_dig_force = true;
 	SENS.sar_meas_start1.meas1_start_force = true;
 	SENS.sar_meas_start1.sar1_en_pad_force = true;
 	SENS.sar_touch_ctrl1.xpd_hall_force = true;
 	SENS.sar_touch_ctrl1.hall_phase_force = true;
-#endif
 
 #endif // M5STICKC_AUDIO
 }

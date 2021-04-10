@@ -43,7 +43,9 @@
 #define SIGMADELTA_GPIO_PIN GPIO_NUM_25
 
 static const uint8_t sigmadelta_gpio_pins[] = {
-#if defined(FX25TNCR2)
+#if defined(FX25TNCR1)
+	GPIO_TXD_PIN,
+#elif defined(FX25TNCR2)
     25, 26,
 #elif defined(M5ATOM)
     22, 25,
@@ -77,40 +79,22 @@ static  tcb_t *tp;
 
 static const uint8_t sin_tab[SIN_CYCLES] = {
 	// cos table for sigma-delta DAC
-#if SIN_CYCLES == 66
 	90,90,88,86,84,80,76,71,65,59,52,
 	45,37,29,21,13,4,-4,-13,-21,-29,-37,
 	-45,-52,-59,-65,-71,-76,-80,-84,-86,-88,-90,
 	-90,-90,-88,-86,-84,-80,-76,-71,-65,-59,-52,
 	-45,-37,-29,-21,-13,-4,4,13,21,29,37,
 	45,52,59,65,71,76,80,84,86,88,90,
-#elif SIN_CYCLES == 132
-	90,90,90,89,88,87,86,85,84,82,80,78,76,73,71,68,65,62,59,56,52,49,
-	45,41,37,33,29,25,21,17,13,9,4,0,-4,-9,-13,-17,-21,-25,-29,-33,-37,-41,
-	-45,-49,-52,-56,-59,-62,-65,-68,-71,-73,-76,-78,-80,-82,-84,-85,-86,-87,-88,-89,-90,-90,
-	-90,-90,-90,-89,-88,-87,-86,-85,-84,-82,-80,-78,-76,-73,-71,-68,-65,-62,-59,-56,-52,-49,
-	-45,-41,-37,-33,-29,-25,-21,-17,-13,-9,-4,0,4,9,13,17,21,25,29,33,37,41,
-	45,49,52,56,59,62,65,68,71,73,76,78,80,82,84,85,86,87,88,89,90,90,
-#endif
 };
-
-#if 0
-static const uint8_t sin_tab2[SIN_CYCLES] = {
-    159,159,159,159,159,158,158,158,157,156,156,155,154,153,153,152,151,149,148,147,146,145,143,142,141,139,138,136,135,134,132,131,129,128,126,124,123,121,120,119,117,116,114,113,112,110,109,108,107,106,104,103,102,102,101,100,99,99,98,97,97,97,96,96,96,96,96,96,96,96,96,97,97,97,98,99,99,100,101,102,102,103,104,106,107,108,109,110,112,113,114,116,117,119,120,121,123,124,126,128,129,131,132,134,135,136,138,139,141,142,143,145,146,147,148,149,151,152,153,153,154,155,156,156,157,158,158,158,159,159,159,159,
-};
-#endif
 
 typedef struct {
-    //QueueHandle_t queue; // byte data queue
     RingbufHandle_t queue; // byte data queue
     uint32_t bitq;	// bit queue
     uint8_t bitq_cnt;	// number of bits in bitq
 
     uint8_t sd_ch;	// sigmadelta dac channel
     uint8_t phase;	// phase of SIN, 0..65 or 0..131
-    //uint8_t inc;
-    //uint8_t cycle;
-    //
+
     uint8_t pttoff_timer;	// ptt off timer
     uint8_t level;	// nrzi state
     uint8_t gpio_pin;	// dac output pin
@@ -143,88 +127,9 @@ static inline uint32_t ccount(void)
     return ccount;
 }
 
-#if 0
-static void IRAM_ATTR timer_isr(void *p)
-{
-    uint32_t cc0;
-    asm volatile (
-	    "rsr.ccount	%[cc0]\t\n"
-	    : [cc0]"=r"(cc0)
-	    );
-
-    //xQueueHandle *queues = (xQueueHandle *)p;
-    int num_queue = (int)p;
-    uint8_t byte;
-    BaseType_t taskWoken = pdFALSE;
-    //uint32_t intr_status = TIMERG0.int_st_timers.val;
-    TIMERG0.int_clr_timers.t0 = 1;
-
-    for (int i = 0; i < num_queue; i++) {
-    	mod_t *mp = &modulator[i];
-
-    if (--mp->cycle <= 0) { // finished to send one bit of AFSK signal
-	if (mp->bitq <= 1) { // bit queue is empty
-
-	    if (xQueueReceiveFromISR(mp->queue, &byte, &taskWoken) == pdTRUE) {
-		mp->bitq = byte | 0x100; // sentinel
-	    } else {
-		tiemr_queue_empty++;
-	    }
-	}
-
-	if (mp->bitq & 1) {
-	    mp->inc = MARK_INC;
-	} else {
-	    mp->inc = SPACE_INC;
-	}
-	mp->bitq >>= 1;
-	mp->cycle = RATE_FACTOR;
-    }
-
-    mp->phase += mp->inc;
-    //mp->phase %= SIN_CYCLES;
-    if (mp->phase >= SIN_CYCLES) mp->phase -= SIN_CYCLES;
-    //sigmadelta_set_duty(mp->sd_ch, sin_tab[mp->phase]); // output audio data
-    //SIGMADELTA.channel[mp->sd_ch].duty = sin_tab[mp->phase];
-    //SIGMADELTA.channel[mp->sd_ch].val = sin_tab[mp->phase];
-    uint32_t *sdp = &SIGMADELTA.channel[0].val;
-    sdp[i] = sin_tab[mp->phase];
-    }
-
-#if 0
-    // wakeup task
-    if (taskWoken) {
-	task_woken++;
-	portYIELD_FROM_ISR();
-    }
-#endif
-
-    TIMERG0.hw_timer[TIMER_NUM].config.alarm_en = TIMER_ALARM_EN;
-
-    uint32_t cc1;
-    asm volatile (
-	    "rsr.ccount	%[cc1]\t\n"
-	    "sub	%[cc1], %[cc1], %[cc0]\t\n"
-	    : [cc1]"=r"(cc1), [cc0]"+r"(cc0)
-	    );
-
-    timer_ccount = cc1;
-}
-#endif
 
 static RingbufHandle_t rb_isr;
 static uint8_t num_q;
-
-//#define USEWAVEBUF 1
-
-#ifdef USEWAVEBUF
-#define WAVE_BUFSIZE (11 * 6 * FACTOR)
-#define WAVE_BUF_CNT 2
-
-static TaskHandle_t wave_task;
-static int wavebuf_index = 0;
-static uint8_t wavebuf[WAVE_BUF_CNT][WAVE_BUFSIZE];
-#endif
 
 #define TIMER_GROUP_NUM 0
 
@@ -232,27 +137,8 @@ void IRAM_ATTR timer_isr(void *arg)
 {
     static uint32_t current_alarm_value = TIMER_ALARM_VALUE;
 
-    //gpio_set_level(TIMER_BUSY_PIN, 1); // busy
-
-    //uint32_t intr_status = TIMERG0.int_st_timers.val;
     TIMERG0.int_clr_timers.t0 = 1; // clear interrupt
     TIMERG0.hw_timer[TIMER_NUM].config.alarm_en = TIMER_ALARM_EN; // enable next alarm
-
-    // timer counter value latch
-    //TIMERG0.hw_timer[TIMER_NUM].update = 0; // latch timer counter value
-
-#if 0
-    // read timer counter value
-    uint32_t timerg0 = (uint32_t)&TIMERG0;
-    uint32_t cnt_low;
-    asm volatile(
-	    "s32i	%[cnt_low], %[timerg0], 12\n\t"	// write update reg
-	    "l32i	%[cnt_low], %[timerg0], 4\n\t"	// read cnt_low reg
-	    : [cnt_low]"=&r"(cnt_low)
-	    : [timerg0]"r"(timerg0)
-	    );
-    timer_cnt_low = cnt_low;
-#endif
 
     static int cycle = 0;
     static uint8_t *buf = NULL, *bp;
@@ -273,154 +159,77 @@ void IRAM_ATTR timer_isr(void *arg)
     // output audio data
     if (cycle > 0) {
 
-	// write audio data to DAC
+		// write audio data to DAC
 	
-
-    	uint32_t cc0 = ccount(); // read cycle counter
-
 #ifdef __XTENSA__ 
 
-	uint32_t val;
-	asm volatile (
-		"loopgtz	%[count], %=f\n\t"
+		uint32_t val;
+		asm volatile (
+			"loopgtz	%[count], %=f\n\t"
 
-		"l8ui	%[val], %[bp], 0\n\t"	// load audio sample
-		"s32i	%[val], %[dac], 0\n\t"	// write to DAC
-		"addi	%[bp], %[bp], 1\n\t"	// next sample
-		"addi	%[dac], %[dac], 4\n\t"	// next DAC
+			"l8ui	%[val], %[bp], 0\n\t"	// load audio sample
+			"addi	%[bp], %[bp], 1\n\t"	// next sample
+			"addi	%[dac], %[dac], 4\n\t"	// next DAC
+			"s32i	%[val], %[dac], 0\n\t"	// write to DAC
 
-		"%=:\n\t"
-		: [val]"=&r"(val), [bp]"+r"(bp)
-		: [count]"r"(num_q), [dac]"r"(&SIGMADELTA.channel[0].val)
+			"%=:\n\t"
+			:
+			[val] "=&r" (val),
+			[bp] "+r" (bp)
+			:
+			[count] "r" (num_q),
+			[dac] "r" (&SIGMADELTA.channel[0].val - 1) // offset -4 for adding 4 before storing the value to DAC
 		);
 #else
 
-	for (int port = 0; port < num_q; port++) {
-	    SIGMADELTA.channel[port].val = *bp++; // write to DAC
-	}
+		for (int port = 0; port < num_q; port++) {
+		    SIGMADELTA.channel[port].val = *bp++; // write to DAC
+		}
 
 #endif
 
-    	timer_ccount = ccount() - cc0; // measure instructsion cycles
-
-	cycle--;
+		cycle--;
 
     }
 
     if (cycle <= 0) {
 
-    	//gpio_set_level(TIMER_BUSY_PIN, 1); // busy
+		// give buffer
+		if (buf) vRingbufferReturnItemFromISR(rb_isr, buf, &taskWoken);
 
-#ifdef USEWAVEBUF
-	buf = &wavebuf[wavebuf_index][0];
+		// take buffer
+		buf = xRingbufferReceiveFromISR(rb_isr, &size);
 
-	wavebuf_index++;
-	if (wavebuf_index >= 2) wavebuf_index = 0;
-
-	vTaskNotifyGiveFromISR(wave_task, &taskWoken);
-#else
-	// give buffer
-	if (buf) vRingbufferReturnItemFromISR(rb_isr, buf, &taskWoken);
-
-	// take buffer
-	buf = xRingbufferReceiveFromISR(rb_isr, &size);
-#endif
-	if (buf != NULL) {
-		cycle = RATE_FACTOR;
-		bp = buf;
-	} else {
-	    //timer_queue_empty++;
-	}
-
-    	//gpio_set_level(TIMER_BUSY_PIN, 0); // free
+		if (buf != NULL) {
+			bp = buf;
+			cycle = RATE_FACTOR;
+		}
 
     }
 
 
     timer_interrupt++;
 
-    // adjust sampling frequency to 26400Hz by DDA
-
-#if 0
-    uint32_t dividend;
-    uint32_t alarm;
-
-    dividend = DDA_DIVIDEND + remainder;
-    alarm = dividend / DDA_DIVISOR;
-    remainder = dividend % DDA_DIVISOR;
-#endif
-
-#if 0
-    uint32_t add = 5;
-    uint32_t sub = -28;
-    uint32_t temp;
-    uint32_t alarm = TIMER_ALARM_VALUE;
-
-    asm volatile(
-	    "add	%[temp], %[rem], %[sub]\n\t"	// temp = rem - 28
-	    "movgez	%[add], %[sub], %[temp]\n\t"	// add = sub if rem >= 28
-	    "add	%[rem], %[rem], %[add]\n\t"	// rem += add
-	    "extui	%[temp], %[add], 31, 1\n\t"	// extract sign bit
-	    "add	%[alarm], %[alarm], %[temp]\n\t" // alarm++ if rem >= 28
-	    : [rem]"+r"(remainder), [add]"+r"(add), [temp]"=&r"(temp), [alarm]"+r"(alarm)
-	    : [sub]"r"(sub)
-	    );
-
-#endif
-
-#if 1
-    //static uint8_t remainder = 0;
-    uint32_t alarm = 3030; // 40MHz / 13200Hz
+    // adjust sampling frequency to 13200Hz by DDA
+	// 40MHz / 13200Hz = 3030 + 10/33
+    uint32_t alarm = 3030;
 
     remainder += 10;
     if (remainder >= 33) {
-	remainder -= 33;
-	alarm++;
+		remainder -= 33;
+		alarm++;
     }
     
-#endif
-
-    //TIMERG0.hw_timer[TIMER_NUM].alarm_low = alarm - 3; // set next alarm value
-
     current_alarm_value += alarm;
     TIMERG0.hw_timer[TIMER_NUM].alarm_low = current_alarm_value; // set next alarm value
-    if (current_alarm_value < alarm) {
-	TIMERG0.hw_timer[TIMER_NUM].alarm_high++;
+    if (current_alarm_value < alarm) { // overflow
+		TIMERG0.hw_timer[TIMER_NUM].alarm_high++;
     }
 
-#if 0
-    uint32_t cc1;
-    asm volatile (
-	    "rsr.ccount	%[cc1]\t\n"
-	    "sub	%[cc1], %[cc1], %[cc0]\t\n"
-	    : [cc1]"=r"(cc1), [cc0]"+r"(cc0)
-	    );
-#endif
-
-#if 0
-    // read timer counter value
-    uint32_t timerg0 = (uint32_t)&TIMERG0;
-    uint32_t cnt_low;
-    asm volatile(
-	    "s32i	%[cnt_low], %[timerg0], 12\n\t"	// write update reg
-	    "l32i	%[cnt_low], %[timerg0], 4\n\t"	// read cnt_low reg
-	    : [cnt_low]"=&r"(cnt_low)
-	    : [timerg0]"r"(timerg0)
-	    );
-    timer_cnt_low = cnt_low;
-#endif
-
-#if 1
     if (taskWoken) {
-	task_woken++;
-	portYIELD_FROM_ISR();
+		task_woken++;
+		portYIELD_FROM_ISR();
     }
-#endif
-
-    // timer counter value latch
-    TIMERG0.hw_timer[TIMER_NUM].update = 0; // latch timer counter value
-
-    //gpio_set_level(TIMER_BUSY_PIN, 0); // free
 
 }
 
@@ -442,20 +251,6 @@ void mod_task(void *arg)
 
 	uint8_t *buf;
 
-#ifdef USEWAVEBUF
-
-	// take
-	ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
-	buf = &wavebuf[wavebuf_index][0];
-
-	uint32_t exec_time = esp_timer_get_time();
-
-	static int index = 0;
-	if (wavebuf_index == index) timer_queue_empty++;
-	index = wavebuf_index;
-
-#else
-
 	// take buffer
 	if (xRingbufferSendAcquire(rb_isr, (void **)&buf, AFSK_CYCLE_BUFSIZE * num_q, portMAX_DELAY) != pdTRUE) {
 	    ESP_LOGI(TAG, "xRingbufferSendAcquire() fail");
@@ -464,11 +259,9 @@ void mod_task(void *arg)
 
 	uint32_t exec_time = esp_timer_get_time();
 
-#endif
-
 	//gpio_set_level(MOD_BUSY_PIN, 1); // busy
 
-	int queue_read_done = false; // restrict queue read at once in a loop
+	int queue_read_done = false; // restrict queue read once in a loop
 
 	//for (int port = 0; port < num_q; port++) { // port number
 	if (++start >= num_q) start -= num_q;
@@ -496,58 +289,58 @@ void mod_task(void *arg)
 	    	//if ((rbuf = xRingbufferReceiveUpTo(mp->queue, &size, 0, sizeof(byte))) == NULL) { // no wait
 	    	if ((rbuf = xRingbufferReceiveUpTo(mp->queue, &size, 0, read_size)) != NULL) { // no wait
 #endif
-		    if (mp->pttoff_timer == 0) { // if DAC is disabled
+			    if (mp->pttoff_timer == 0) { // if DAC is disabled
 
-			GPIO.func_out_sel_cfg[mp->gpio_pin].func_sel = mp->sd_func; // enable
+					GPIO.func_out_sel_cfg[mp->gpio_pin].func_sel = mp->sd_func; // enable
 
-    			//if (port == 0) gpio_set_level(TIMER_BUSY_PIN, 1); // PTT on
-		    }
+    				//if (port == 0) gpio_set_level(TIMER_BUSY_PIN, 1); // PTT on
+			    }
 
 #ifdef USEQUEUE
-		    mp->bitq |= byte << mp->bitq_cnt;
-		    mp->bitq_cnt += 8;
-		    //mp->bitq = byte | 0x100; // sentinel 
-		    //mp->bitq = *rbuf | 0x100; // sentinel 
+		    	mp->bitq |= byte << mp->bitq_cnt;
+		    	mp->bitq_cnt += 8;
+		    	//mp->bitq = byte | 0x100; // sentinel 
+		    	//mp->bitq = *rbuf | 0x100; // sentinel 
 #else 
 		 
 #if 1
-		    //mp->bitq = rbuf[0];
-		    for (int i = 0; i < size; i++) {
-			mp->bitq |= rbuf[i] << mp->bitq_cnt;
-			mp->bitq_cnt += 8;
-		    }
+		    	//mp->bitq = rbuf[0];
+		    	for (int i = 0; i < size; i++) {
+					mp->bitq |= rbuf[i] << mp->bitq_cnt;
+					mp->bitq_cnt += 8;
+			    }
 #else
-		    for (int i = 0; i < size; i++) {
-			*((uint8_t *)&mp->bitq + i) = rbuf[i];
-		    }
+			    for (int i = 0; i < size; i++) {
+					*((uint8_t *)&mp->bitq + i) = rbuf[i];
+		    	}
 #endif
-		    vRingbufferReturnItem(mp->queue, rbuf);
+		    	vRingbufferReturnItem(mp->queue, rbuf);
 
-		    //mp->bitq_cnt = size * 8; // bit count in bitq
+		    	//mp->bitq_cnt = size * 8; // bit count in bitq
 #endif
 
 #define WBUF_SIZE 3 // wave buffer size
 
-		    //mp->pttoff_timer = WBUF_SIZE + 3; // PTT off (val - 3) * (1/1200) sec after sending data
-		    mp->pttoff_timer = mp->bitq_cnt; // PTT off timer * (1/1200) sec after sending data
+		    	//mp->pttoff_timer = WBUF_SIZE + 3; // PTT off (val - 3) * (1/1200) sec after sending data
+		    	mp->pttoff_timer = mp->bitq_cnt; // PTT off timer * (1/1200) sec after sending data
 
-		} else { // no data
+			} else { // no data
 
-		    //gpio_set_level(TIMER_BUSY_PIN, 1); // busy
-		    if (mp->bitq_cnt <= 0) send_queue_empty++;
+			    //gpio_set_level(TIMER_BUSY_PIN, 1); // busy
+		    	if (mp->bitq_cnt <= 0) send_queue_empty++;
 
-		    if (port == BUSY_PORT) {
-		    }
+		    	if (port == BUSY_PORT) {
+		    	}
 
 
-		    //mp->bitq_cnt += 8; // read queue every 8 bits
+		    	//mp->bitq_cnt += 8; // read queue every 8 bits
 
-		    //ESP_LOGI(TAG, "xQueueReceive() fail");
-		    //mp->bitq = 0x100; // bit queue is empty
-		    //mp->bitq = 0; // bit queue is empty
-		    //mp->ptt_state = PTT_OFF; // send all data
+		    	//ESP_LOGI(TAG, "xQueueReceive() fail");
+		    	//mp->bitq = 0x100; // bit queue is empty
+		    	//mp->bitq = 0; // bit queue is empty
+		    	//mp->ptt_state = PTT_OFF; // send all data
 
-		}
+			}
 
 	    }
 
@@ -555,53 +348,73 @@ void mod_task(void *arg)
 
 	    	// NRZI processing
 #if 0
-	    	mp->level ^= !(mp->bitq & 1); // invert level if bit == 1
+	    	mp->level ^= !(mp->bitq & 1); // invert level if bit == 0
 #else
 	    	if (!(mp->bitq & 1)) mp->level = !mp->level;
 #endif
 	    	//mp->bitq >>= 1;
+#ifdef ENABLE_TCM3105
+			if (tp->enable_tcm3105) {
+				// set level for TCM3105
+				int sd_level;
 
-	    	if (mp->level) {
-		    inc = MARK_INC;
-		} else {
-		    inc = SPACE_INC;
-		}
+				if (mp->level) {
+					sd_level = -128; // mark (1200Hz)
+				} else {
+					sd_level = 127; // space (2200Hz)
+				}
 
-	    	// store one bit of audio data (22 samples)
-	    	for (int j = 0; j < RATE_FACTOR; j++) {
-		    mp->phase += inc;
-		    //mp->phase %= SIN_CYCLES;
-		    if (mp->phase >= SIN_CYCLES) mp->phase -= SIN_CYCLES;
-		    buf[port + num_q * j] = sin_tab[mp->phase];
-		    //buf[port + num_q * j] = table[mp->phase];
-		}
+				for (int j = 0; j < RATE_FACTOR; j++) {
+					buf[port + num_q * j] = sd_level;
+				}
 
-		mp->bitq >>= 1;
-		mp->bitq_cnt--;
+			} else
+#endif // ENABLE_TCM3105
+			{
+
+		    	if (mp->level) {
+			    	inc = MARK_INC;
+				} else {
+			    	inc = SPACE_INC;
+				}
+
+				// store one bit of audio data (11 samples)
+				for (int j = 0; j < RATE_FACTOR; j++) {
+				    mp->phase += inc;
+		    		//mp->phase %= SIN_CYCLES;
+		    		if (mp->phase >= SIN_CYCLES) mp->phase -= SIN_CYCLES;
+		    		buf[port + num_q * j] = sin_tab[mp->phase];
+		    		//buf[port + num_q * j] = table[mp->phase];
+				}
+
+			}
+
+			mp->bitq >>= 1;
+			mp->bitq_cnt--;
 
 	    } else if (mp->pttoff_timer > 0) { // queue is empty
 
-		if (--mp->pttoff_timer == 0) {
-		    if (port == 0) {
-			//gpio_set_level(TIMER_BUSY_PIN, 0); // PTT off
-		    }
+			if (--mp->pttoff_timer == 0) {
+		    	if (port == 0) {
+					//gpio_set_level(TIMER_BUSY_PIN, 0); // PTT off
+		    	}
 
-		    // PTT off
+		    	// PTT off
 #ifndef M5STICKC_AUDIO
-		    gpio_set_level(tp->ptt_pin, 0);
+		    	gpio_set_level(tp->ptt_pin, 0);
 #endif
 #ifdef M5ATOM
-		    m5atom_led_set_level(M5ATOM_LED_RED, 0);
+		    	m5atom_led_set_level(M5ATOM_LED_RED, 0);
 #endif
-		    //ESP_LOGI(TAG, "ptt off: pin = %d, port = %d", tp->ptt_pin, tp->port);
+		    	//ESP_LOGI(TAG, "ptt off: pin = %d, port = %d", tp->ptt_pin, tp->port);
 
-		    GPIO.func_out_sel_cfg[mp->gpio_pin].func_sel = SIG_GPIO_OUT_IDX; // disable DAC output
+		    	GPIO.func_out_sel_cfg[mp->gpio_pin].func_sel = SIG_GPIO_OUT_IDX; // disable DAC output
 
-		    tp->ptt = false;
+		    	tp->ptt = false;
 #ifdef FX25TNCR2
-		    gpio_set_level(tp->sta_led_pin, 0);
+		    	gpio_set_level(tp->sta_led_pin, 0); // STA LED off
 #endif
-		}
+			}
 
 	    }
 
@@ -612,13 +425,10 @@ void mod_task(void *arg)
 
 	//gpio_set_level(MOD_BUSY_PIN, 0); // free
 
-#ifdef USEWAVEBUF
-#else
 	// give buffer
 	if (xRingbufferSendComplete(rb_isr, buf) != pdTRUE) {
 	    ESP_LOGI(TAG, "xRingbufferSendComplete() fail");
 	}
-#endif
 
 	exec_time = esp_timer_get_time() - exec_time;
 	if (exec_time > timer_exec_time) timer_exec_time = exec_time;
@@ -640,19 +450,19 @@ void timer_isr_register_task(void *p)
 void timer_initialize(tcb_t *p, int num_queue)
 {
     const timer_config_t tc = {
-	.alarm_en = TIMER_ALARM_EN,
-	.counter_en = TIMER_PAUSE,
-	.intr_type = TIMER_INTR_LEVEL,
-	.counter_dir = TIMER_COUNT_UP,
-	.auto_reload = TIMER_AUTORELOAD_DIS,
-	.divider = TIMER_DIVIDER,
+		.alarm_en = TIMER_ALARM_EN,
+		.counter_en = TIMER_PAUSE,
+		.intr_type = TIMER_INTR_LEVEL,
+		.counter_dir = TIMER_COUNT_UP,
+		.auto_reload = TIMER_AUTORELOAD_DIS,
+		.divider = TIMER_DIVIDER,
     };
     //timer_isr_handle_t handle;
     sigmadelta_config_t sd_conf = {
-	.channel = SIGMADELTA_CHANNEL,
-	.sigmadelta_duty = 0,
-	.sigmadelta_prescale = 0,
-	.sigmadelta_gpio = SIGMADELTA_GPIO_PIN,
+		.channel = SIGMADELTA_CHANNEL,
+		.sigmadelta_duty = 0,
+		.sigmadelta_prescale = 0,
+		.sigmadelta_gpio = SIGMADELTA_GPIO_PIN,
     };
 
     tp = p;
@@ -660,37 +470,37 @@ void timer_initialize(tcb_t *p, int num_queue)
     //ESP_ERROR_CHECK(gpio_set_direction(SIGMADELTA_GPIO_PIN, GPIO_MODE_OUTPUT));
 
     if ((num_queue <= 0)  || (num_queue > MODULATORS)) {
-	ESP_LOGE(TAG, "number of queue invalid, num_queue = %d", num_queue);
-	assert(false);
+		ESP_LOGE(TAG, "number of queue invalid, num_queue = %d", num_queue);
+		assert(false);
     }
 
     for (int i = 0; i < num_queue; i++) {
 
-	sd_conf.channel = i;
-	sd_conf.sigmadelta_gpio = sigmadelta_gpio_pins[i];
+		sd_conf.channel = i;
+		sd_conf.sigmadelta_gpio = sigmadelta_gpio_pins[i];
 
-	ESP_LOGI(TAG, "port[%d] output pin GPIO%d", i, sigmadelta_gpio_pins[i]);
+		ESP_LOGI(TAG, "port[%d] output pin GPIO%d", i, sigmadelta_gpio_pins[i]);
 
-	ESP_ERROR_CHECK(sigmadelta_config(&sd_conf));
+		ESP_ERROR_CHECK(sigmadelta_config(&sd_conf));
 
-	mod_t *mp = &modulator[i];
+		mod_t *mp = &modulator[i];
 
-	mp->sd_ch = i;
-	mp->queue = tp[i].queue; // data receiving queue
-	mp->phase = 0;
-	//mp->inc = MARK_INC;
-	mp->bitq = 0;
-	//mp->cycle = 0;
-	mp->level = 0;
+		mp->sd_ch = i;
+		mp->queue = tp[i].queue; // data receiving queue
+		mp->phase = 0;
+		//mp->inc = MARK_INC;
+		mp->bitq = 0;
+		//mp->cycle = 0;
+		mp->level = 0;
 
-	mp->gpio_pin = sigmadelta_gpio_pins[i];
-	mp->sd_func = GPIO.func_out_sel_cfg[mp->gpio_pin].func_sel; // save function number for SD
+		mp->gpio_pin = sigmadelta_gpio_pins[i];
+		mp->sd_func = GPIO.func_out_sel_cfg[mp->gpio_pin].func_sel; // save function number for SD
 
-	ESP_LOGI(TAG, "pad[%d].func_sel: %d, oen_sel: %d", mp->gpio_pin, GPIO.func_out_sel_cfg[mp->gpio_pin].func_sel, GPIO.func_out_sel_cfg[mp->gpio_pin].oen_sel);
+		ESP_LOGI(TAG, "pad[%d].func_sel: %d, oen_sel: %d", mp->gpio_pin, GPIO.func_out_sel_cfg[mp->gpio_pin].func_sel, GPIO.func_out_sel_cfg[mp->gpio_pin].oen_sel);
 
-	GPIO.func_out_sel_cfg[mp->gpio_pin].func_sel = SIG_GPIO_OUT_IDX; // disable DAC output
+		GPIO.func_out_sel_cfg[mp->gpio_pin].func_sel = SIG_GPIO_OUT_IDX; // disable DAC output
 
-	//queues[i] = queue[i];
+		//queues[i] = queue[i];
     }
     num_q = num_queue;
 
@@ -722,13 +532,7 @@ void timer_initialize(tcb_t *p, int num_queue)
     //assert(xTaskCreatePinnedToCore(mod_task, "mod task", 4096, modulator, configMAX_PRIORITIES - 1, NULL, tskNO_AFFINITY) == pdPASS);
     //assert(xTaskCreatePinnedToCore(mod_task, "mod task", 4096, modulator, tskIDLE_PRIORITY + 10, NULL, tskNO_AFFINITY) == pdPASS);
     //
-    assert(xTaskCreatePinnedToCore(mod_task, "mod task", 4096, modulator, tskIDLE_PRIORITY + 24,
-#ifdef USEWAVEBUF
-		&wave_task,
-#else
-		NULL,
-#endif
-		0) == pdPASS);
+    assert(xTaskCreatePinnedToCore(mod_task, "mod task", 4096, modulator, tskIDLE_PRIORITY + 24, NULL, 0) == pdPASS);
 
     ESP_ERROR_CHECK(timer_start(TIMER_GROUP_NUM, TIMER_NUM));
     ESP_LOGI(TAG, "timer_start");

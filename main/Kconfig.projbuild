@@ -10,12 +10,18 @@ config M5STICKC
 config M5ATOM
     bool "M5Atom Lite/Matrix"
 
+config FX25TNCR1
+    bool "FX.25 KISS TNC rev.1 (TCM3105 version)"
+        
 config FX25TNCR2
     bool "FX.25 KISS TNC rev.2 (SMD version)"
 
 config FX25TNCR3
     bool "FX.25 KISS TNC rev.3 (6ports capable version)"
 
+config FX25TNCR4
+    bool "FX.25 KISS TNC rev.4 (Software modem and TCM3105 version)"
+    
 endchoice
 
 config M5STICKC_AUDIO
@@ -35,6 +41,41 @@ config FX25TNCR3_PORTS
     range 1 6
     depends on FX25TNCR3
 
+config GPIO_RXD_PIN
+    int "GPIO No. which connected to TCM3105 RXD pin"
+    default 39
+    range 0 39
+    depends on FX25TNCR1
+
+config GPIO_CDT_PIN
+    int "GPIO No. which connected to TCM3105 CDT pin"
+    default 36
+    range 0 39
+    depends on FX25TNCR1
+    
+config GPIO_TXD_PIN
+    int "GPIO No. which connected to TCM3105 TXD pin"
+    default 12
+    range 0 39
+    depends on FX25TNCR1
+
+config GPIO_PTT_PIN
+    int "GPIO No. which connected to the transmitter PTT"
+    default 15
+    range 0 39
+    depends on FX25TNCR1
+
+config GPIO_LED_PIN
+    int "GPIO No. which connected to CDT LED"
+    default 2
+    range 0 39
+    depends on FX25TNCR1
+
+config ENABLE_TCM3105
+    bool "enable TCM3105 modem chip"
+    default "y"
+    depends on FX25TNCR4
+    
 config TEXT_MODE
     bool "Enable text mode instead of KISS protocol"
     default "y"

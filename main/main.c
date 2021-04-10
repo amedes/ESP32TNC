@@ -40,6 +40,10 @@
 #include "m5tnc_logo.h"
 #endif
 
+#ifdef ENABLE_TCM3105
+#include "tcm3105.h"
+#endif
+
 #define TAG "main"
 
 #ifdef BEACON
@@ -129,6 +133,10 @@ static void send_packet_task(void *arg)
 
     while (1) {
 
+#ifdef FX25TNCR4
+        ESP_LOGI(TAG, "gpio_get_level(%d) = %d", GPIO_ENABLE_TCM3105_PIN, gpio_get_level(GPIO_ENABLE_TCM3105_PIN));
+#endif
+
 	    vTaskDelay(BEACON_INTERVAL * 1000 / portTICK_PERIOD_MS);
 
 	    pkt_len = make_packet(tp, packet, PACKET_SIZE);
@@ -145,24 +153,57 @@ static void send_packet_task(void *arg)
 
 void app_main(void)
 {
+    ESP_LOGI(TAG, 
+#ifdef FX25TNCR1
+        "FX.25 KISS TNC rev.1 (TCM3105 version)"
+#endif
+#ifdef FX25TNCR2
+        "FX.25 KISS TNC rev.2 (SMD version)"
+#endif
+#ifdef FX25TNCr3
+        "FX.25 KISS TNC rev.3 (6ports version)"
+#endif
+#ifdef FX25TNCR4
+        "FX.25 KISS TNC rev.4 (softmodem and TCM3105 version)"
+#endif
+#ifdef M5STICKC
+        "M5TNC M5StickC Plus version"
+#endif
+#ifdef M5ATOM
+        "M5TNC M5Atom version"
+#endif
+    );
+
+    ESP_LOGI(TAG, "TNC_PORTS = %d", TNC_PORTS);
+
+#ifdef FX25TNCR4
+    // initialize TCM3105 check pin
+    ESP_LOGI(TAG, "GPIO_ENABLE_TCM3105_PIN GPIO = %d, value = %d", GPIO_ENABLE_TCM3105_PIN, gpio_get_level(GPIO_ENABLE_TCM3105_PIN));
+#endif
+
 #ifdef M5STICKC
     // M5StickC library initialize
     m5stickc_init();
 
-    decode_image(lcd.spi, m5tnc_logo);
+    decode_image(lcd.spi, m5tnc_logo); // M5TNC logo
 
     static const uint8_t s[] = "M5TNC for M5StickC Plus\n";
     tty_write(s, sizeof(s) - 1);
 #endif
 
-    // initialize Bell202 modem
-    bell202_init();
-
     // initialize UART
     uart_init();
 
+
+#ifdef ENABLE_SOFTMODEM
+    ESP_LOGI(TAG, "enable softmodem");
+
+    // initialize Bell202 modem
+    bell202_init();
+
     // initialize I2S
     i2s_init(tcb);
+#endif
 
     // initialize send task
     send_init(tcb);
@@ -187,9 +228,21 @@ void app_main(void)
     }
 #endif
 
+#define CAPTURE_QUEUE_SIZE 1024 // capture queue size
+
+#ifdef ENABLE_TCM3105
+    // initialize TCM3105 check pin
+    cap_queue = xQueueCreate(CAPTURE_QUEUE_SIZE, sizeof(uint32_t));
+    assert(cap_queue != NULL);
+#endif
 
     // initialize TNC control block and start TNC decode task
     tnc_init(tcb, TNC_PORTS);
+
+#ifdef ENABLE_TCM3105
+    // initialize TCM3105 support routines
+    tcm3105_init();
+#endif
 
 #ifdef BEACON
     // send beacon packet
