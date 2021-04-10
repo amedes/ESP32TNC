@@ -1,0 +1,34 @@
+menu "BME280 APRS Configuration"
+
+config BME280_EXISTS
+    bool "BME280 exists"
+    default n
+    help
+	BME280 sensor exists or not.
+
+config BME280_INTERVAL
+    int "BME280 interval in sec."
+    depends on BME280_EXISTS
+    range 30 3600
+    default 600
+
+config BME280_MYCALL
+    string "BME280 source callsign"
+    depends on BME280_EXISTS
+    default "NOCALL"
+
+config BME280_LAT
+    string "BME280 latitude"
+    depends on BME280_EXISTS
+    default "3539.20N"
+    help
+	ex. 3539.20N
+
+config BME280_LON
+    string "BME280 longitude"
+    depends on BME280_EXISTS
+    default "13927.73E"
+    help
+	ex. 13927.73E
+
+endmenu
