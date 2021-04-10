@@ -133,10 +133,6 @@ static void send_packet_task(void *arg)
 
     while (1) {
 
-#ifdef FX25TNCR4
-        ESP_LOGI(TAG, "gpio_get_level(%d) = %d", GPIO_ENABLE_TCM3105_PIN, gpio_get_level(GPIO_ENABLE_TCM3105_PIN));
-#endif
-
 	    vTaskDelay(BEACON_INTERVAL * 1000 / portTICK_PERIOD_MS);
 
 	    pkt_len = make_packet(tp, packet, PACKET_SIZE);
