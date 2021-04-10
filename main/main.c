@@ -44,6 +44,10 @@
 #include "tcm3105.h"
 #endif
 
+#ifdef CONFIG_BME280_EXISTS
+#include "BME280.h"   /* for BME280 APRS transmit test */
+#endif
+
 #define TAG "main"
 
 #ifdef BEACON
@@ -60,19 +64,19 @@ static char *make_address(char str[])
     memset(addr, ' ' << 1, CALLSIGN_LEN);
 
     for (int i = 0; i < CALLSIGN_LEN - 1; i++) {
-	c = *p++;
+    	c = *p++;
 
-	if (c == '\0') break;
-	if (c == '-') break;
+	    if (c == '\0') break;
+	    if (c == '-') break;
 
-	if (!isalnum(c)) break;
+	    if (!isalnum(c)) break;
 
-	*q++ = toupper(c) << 1;
+	    *q++ = toupper(c) << 1;
     }
 
     if (c == '-' || *p++ == '-') {
-	ssid = atoi(p);
-	if (ssid < 0 || ssid > 15) ssid = 0;
+	    ssid = atoi(p);
+	    if (ssid < 0 || ssid > 15) ssid = 0;
     }
 
     addr[CALLSIGN_LEN - 1] = 0x61 | (ssid << 1);
@@ -97,8 +101,8 @@ static int make_packet(tcb_t *tp, uint8_t *packet, int pkt_len)
     long t;
 
     if (!epoch) {
-	gettimeofday(&tv, NULL);
-	epoch = tv.tv_sec;
+	    gettimeofday(&tv, NULL);
+	    epoch = tv.tv_sec;
     }
 
     gettimeofday(&tv, NULL);
@@ -243,6 +247,14 @@ void app_main(void)
 #ifdef BEACON
     // send beacon packet
     assert(xTaskCreatePinnedToCore(send_packet_task, "send packet", 4096, &tcb[0], tskIDLE_PRIORITY, NULL, 0) == pdPASS);
+#endif
+
+#ifdef CONFIG_BME280_EXISTS
+    //  BME280 APRS transmit test
+    ESP_ERROR_CHECK(i2c_master_init()); /* I2C interface initialize */
+    BME280_setup(); /* BME280 setup */
+    vTaskDelay(2 * 1000 / portTICK_PERIOD_MS); /* wait more than BME280 measurment period */
+    xTaskCreate(BME280_aprs_task, "BME280_aprs_task_0", 1024 * 2, (void *)0, 10, NULL);
 #endif
 
     vTaskDelete(NULL);
