@@ -24,6 +24,11 @@
 #define TCM3105_PORT 0
 #endif
 
+#ifdef CONFIG_TCM3105_ADC
+#define TCM3105_ADC 1
+#define ENABLE_SOFTMODEM
+#endif
+
 #ifdef CONFIG_FX25TNCR2
 #define FX25TNCR2 1
 #define ENABLE_SOFTMODEM 1

@@ -24,7 +24,7 @@
 #define I2S_NUM           (0)
 
 //i2s sample rate
-#ifdef ENABLE_TCM3105
+#if defined(ENABLE_TCM3105) && !defined(TCM3105_ADC)
 #define I2S_SAMPLE_RATE   (SAMPLING_RATE * (TNC_PORTS-1)) // reduce sample rate for TCM3105
 #else
 #define I2S_SAMPLE_RATE   (SAMPLING_RATE * TNC_PORTS)
@@ -124,7 +124,7 @@ void i2s_init(tcb_t tcb[])
 	// setup multi-channel scanning mode
 	for (int i = 0; i < TNC_PORTS; i++) {
 
-#ifdef ENABLE_TCM3105
+#if defined(ENABLE_TCM3105) && !defined(TCM3105_ADC)
 		if (i == TCM3105_PORT) {
 			// enable TCM3105 for the port, skip ADC setting 
 			continue;

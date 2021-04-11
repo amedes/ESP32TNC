@@ -61,7 +61,7 @@ tcb_t *adc_ch_tcb[8];
 #define I2S_BUSY_PIN GPIO_NUM_26
 #define SEND_BUSY_PIN GPIO_NUM_27
 
-#ifdef ENABLE_TCM3105
+#if defined(ENABLE_TCM3105) && !defined(TCM3105_ADC)
 
 #define BIT_DURATION ((80 * 1000 * 1000 + BAUD_RATE/2) / BAUD_RATE)
 #define MAX_DURATION (32 * BIT_DURATION)
@@ -201,7 +201,7 @@ static void read_i2s_adc(void *arg)
 
 		for (int i = 0; i < size / sizeof(uint16_t); i++)
 		{
-#if TNC_PORTS == 1
+#if (TNC_PORTS == 1) || (defined(ENABLE_TCM3105) && (TNC_PORTS == 2))
 			uint16_t adc = buf[i ^ 1];
 #else
 			uint16_t adc = buf[i];
@@ -216,7 +216,11 @@ static void read_i2s_adc(void *arg)
 			if (tp)
 			{
 				// decode adc sample
-				demodulator(tp, adc & 0xfff);
+				if (tp->enable_tcm3105) {
+					decode(tp, (adc & 0xfff) >= 2048); // process modem RXD signal
+				} else {
+					demodulator(tp, adc & 0xfff);
+				}
 			}
 #endif
 		}
@@ -334,7 +338,21 @@ static const uint8_t FX25_PARITY[] = {
 // index: port No. 0-5
 // value: adc channel
 const uint8_t TNC_ADC_CH[] = {
-#if defined(FX25TNCR2) || defined(FX25TNCR3) || defined(FX25TNCR4)
+#if defined(FX25TNCR1)
+#if GPIO_RXD_PIN == 36
+	0,
+#elif GPIO_RXD_PIN == 39
+	3,
+#elif GPIO_RXD_PIN == 34
+	6,
+#elif GPIO_RXD_PIN == 35
+	7,
+#elif GPIO_RXD_PIN == 32
+	4,
+#else
+	5,
+#endif
+#elif defined(FX25TNCR2) || defined(FX25TNCR3) || defined(FX25TNCR4)
 	0, 3, 6, 7, 4, 5, // GPIO 36, 39, 34, 35, 32, 33,
 #elif defined(M5ATOM)
 	5, 6,	// GPIO 33, 34
@@ -539,7 +557,7 @@ void tnc_init(tcb_t *tcb, int ports)
 	}
 
 	// create decode task
-#ifdef ENABLE_TCM3105
+#if defined(ENABLE_TCM3105) && !defined(TCM3105_ADC)
 	ESP_LOGI(TAG, "create raad_cap_queue task");
 	assert(xTaskCreatePinnedToCore(read_cap_queue, "read capture q", 4096, &tcb[TCM3105_PORT], tskIDLE_PRIORITY + 5, NULL, 1) == pdPASS); // pinned CPU 1
 #endif

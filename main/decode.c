@@ -189,10 +189,11 @@ void decode_bit(tcb_t *tp, uint8_t bit)
 #define PLL_DIV (SAMPLING_RATE / BAUD_RATE)
 #define PLL_INC	((1LLU << 32) / PLL_DIV)
 
-static void decode(tcb_t *tp, int val)
+void decode(tcb_t *tp, int val)
 {
 	int32_t prev_clk = tp->pll_clock;
 
+	// implement DireWolf PLL
 	tp->pll_clock += PLL_INC;
 
 	if (tp->pll_clock < prev_clk) {

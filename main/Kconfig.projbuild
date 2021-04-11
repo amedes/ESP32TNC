@@ -41,6 +41,11 @@ config FX25TNCR3_PORTS
     range 1 6
     depends on FX25TNCR3
 
+config TCM3105_ADC
+    bool "use ADC to get RXD state"
+    default "y"
+    depends on FX25TNCR1
+
 config GPIO_RXD_PIN
     int "GPIO No. which connected to TCM3105 RXD pin"
     default 39

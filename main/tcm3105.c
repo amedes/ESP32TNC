@@ -242,7 +242,9 @@ static void timer_initialize(void)
 
 void tcm3105_init(void)
 {
+#ifndef TCM3105_ADC
     mcpwm_initialize();
+#endif
     gpio_initialize();
 #if 0
     timer_initialize();

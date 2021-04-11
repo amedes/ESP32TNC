@@ -230,7 +230,7 @@ void app_main(void)
 
 #define CAPTURE_QUEUE_SIZE 1024 // capture queue size
 
-#ifdef ENABLE_TCM3105
+#if defined(ENABLE_TCM3105) && !defined(TCM3105_ADC)
     // initialize TCM3105 check pin
     cap_queue = xQueueCreate(CAPTURE_QUEUE_SIZE, sizeof(uint32_t));
     assert(cap_queue != NULL);
