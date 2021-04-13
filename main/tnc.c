@@ -217,7 +217,9 @@ static void read_i2s_adc(void *arg)
 			{
 				// decode adc sample
 				if (tp->enable_tcm3105) {
-					decode(tp, (adc & 0xfff) >= 2048); // process modem RXD signal
+					if (tp->cdt) { // decoding when CDT is on
+						decode(tp, (adc & 0xfff) >= 2048); // process modem RXD signal
+					}
 				} else {
 					demodulator(tp, adc & 0xfff);
 				}
