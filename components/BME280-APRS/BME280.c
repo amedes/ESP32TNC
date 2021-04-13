@@ -149,15 +149,12 @@ void BME280_aprs_task(void *arg)
 #if 0
     fx25_send_packet(ax25_data, len, 0, tnc_mode); // 0:do not wait for Queuing, default TNC mode
 #else
-
     {
         tcb_t *tp = &tcb[BME280_APRS_PORT];
 
-#ifdef FX25_ENABLE
         if (xRingbufferSend(tp->ringbuf, ax25_data, len, portMAX_DELAY) != pdTRUE) {
 	        printf("BME APRS: xRingbufferSend() fail, port = %d\n", tp->port);
 	    }
-#endif
     }
 #endif
     vTaskDelay(CONFIG_BME280_INTERVAL * 1000 / portTICK_RATE_MS);
