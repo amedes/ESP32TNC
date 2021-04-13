@@ -201,8 +201,8 @@ static void read_i2s_adc(void *arg)
 
 		for (int i = 0; i < size / sizeof(uint16_t); i++)
 		{
-#if (TNC_PORTS == 1) || (defined(ENABLE_TCM3105) && (TNC_PORTS == 2))
-			uint16_t adc = buf[i ^ 1];
+#if SOFTMODEM_PORTS == 1
+			uint16_t adc = buf[i ^ 1]; // I2S ADC storing ADC data in Bigendian order
 #else
 			uint16_t adc = buf[i];
 #endif
@@ -352,8 +352,14 @@ const uint8_t TNC_ADC_CH[] = {
 #else
 	5,
 #endif
-#elif defined(FX25TNCR2) || defined(FX25TNCR3) || defined(FX25TNCR4)
+#elif defined(FX25TNCR2) || defined(FX25TNCR3)
 	0, 3, 6, 7, 4, 5, // GPIO 36, 39, 34, 35, 32, 33,
+#elif defined(FX25TNCR4)
+#ifdef TCM3105_ADC
+	0, 6, // GPIO 36, 34
+#else
+	0, 3, // GPIO 36, 39
+#endif
 #elif defined(M5ATOM)
 	5, 6,	// GPIO 33, 34
 #elif defined(M5STICKC)

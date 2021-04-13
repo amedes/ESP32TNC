@@ -44,6 +44,12 @@
 #define TNC_PORTS 6 // number of ports 1..6
 #endif
 
+#if defined(ENABLE_TCM3105) && !defined(TCM3105_ADC)
+#define SOFTMODEM_PORTS (TNC_PORTS - 1)
+#else
+#define SOFTMODEM_PORTS TNC_PORTS
+#endif
+
 #define BAUD_RATE 1200
 #define DECODE_DELAY 4.458981479161393e-4 // sample delay
 #define DELAY_DIVIDEND 325

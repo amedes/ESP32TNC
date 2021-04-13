@@ -16,6 +16,7 @@
 #include "soc/syscon_periph.h"
 #include "esp_idf_version.h"
 
+#include "config.h"
 #include "tnc.h"
 
 #define TAG "I2S"
@@ -24,8 +25,8 @@
 #define I2S_NUM           (0)
 
 //i2s sample rate
-#if defined(ENABLE_TCM3105) && !defined(TCM3105_ADC)
-#define I2S_SAMPLE_RATE   (SAMPLING_RATE * (TNC_PORTS-1)) // reduce sample rate for TCM3105
+#ifdef SOFTMODEM_PORTS
+#define I2S_SAMPLE_RATE   (SAMPLING_RATE * SOFTMODEM_PORTS)
 #else
 #define I2S_SAMPLE_RATE   (SAMPLING_RATE * TNC_PORTS)
 #endif

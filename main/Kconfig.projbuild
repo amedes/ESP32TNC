@@ -41,11 +41,6 @@ config FX25TNCR3_PORTS
     range 1 6
     depends on FX25TNCR3
 
-config TCM3105_ADC
-    bool "use ADC to get RXD state"
-    default "y"
-    depends on FX25TNCR1
-
 config GPIO_RXD_PIN
     int "GPIO No. which connected to TCM3105 RXD pin"
     default 39
@@ -81,11 +76,17 @@ config ENABLE_TCM3105
     default "y"
     depends on FX25TNCR4
     
+if FX25TNCR1 || (FX25TNCR4 && ENABLE_TCM3105)
+config TCM3105_ADC
+    bool "use ADC to get RXD state"
+    default "y"
+endif
+
 config TEXT_MODE
     bool "Enable text mode instead of KISS protocol"
     default "y"
     help
-	Serial output is changed for human readable format.
+    Serial output is changed for human readable format.
 
 config USE_WIFI
     bool "Enable WiFi"

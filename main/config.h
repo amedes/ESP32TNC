@@ -24,11 +24,6 @@
 #define TCM3105_PORT 0
 #endif
 
-#ifdef CONFIG_TCM3105_ADC
-#define TCM3105_ADC 1
-#define ENABLE_SOFTMODEM
-#endif
-
 #ifdef CONFIG_FX25TNCR2
 #define FX25TNCR2 1
 #define ENABLE_SOFTMODEM 1
@@ -47,6 +42,13 @@
 #ifdef CONFIG_ENABLE_TCM3105
 #define ENABLE_TCM3105 1
 #define TCM3105_PORT 1
+#endif
+
+#ifdef CONFIG_TCM3105_ADC
+#define TCM3105_ADC 1
+#ifndef ENABLE_SOFTMODEM
+#define ENABLE_SOFTMODEM 1
+#endif
 #endif
 
 // number of suported ports (supported 2..6 ports)

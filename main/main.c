@@ -176,6 +176,16 @@ void app_main(void)
 
     ESP_LOGI(TAG, "TNC_PORTS = %d", TNC_PORTS);
 
+#ifdef SOFTMODEM_PORTS
+    ESP_LOGI(TAG, "SOFTMODEM_PORTS = %d", SOFTMODEM_PORTS);
+#endif
+#ifdef ENABLE_TCM3105
+    ESP_LOGI(TAG, "ENABLE_TCM3105: true");
+#ifdef TCM3105_ADC
+    ESP_LOGI(TAG, "TCM3105_ADC: true");
+#endif
+#endif
+
 #ifdef FX25TNCR4
     // initialize TCM3105 check pin
     ESP_LOGI(TAG, "GPIO_ENABLE_TCM3105_PIN GPIO = %d, value = %d", GPIO_ENABLE_TCM3105_PIN, gpio_get_level(GPIO_ENABLE_TCM3105_PIN));
