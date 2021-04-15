@@ -253,6 +253,9 @@ static int fx25_packet_decode(tcb_t *tp)
 
     if (buf_len <= 0 || crc16_le(0, buf, buf_len) != GOOD_CRC) { // FCS error
 
+#ifdef DEBUG
+        ESP_LOGI(TAG, "FCS error detected");
+#endif
         tp->fx25_data[0] = AX25_FLAG;
         int rs8_ret = rs8_decode(tp->fx25_data, tp->fx25_tagp->rs_code, tp->fx25_tagp->rs_code - tp->fx25_tagp->rs_info);
         if (rs8_ret == RS8_ERR) {
@@ -260,7 +263,7 @@ static int fx25_packet_decode(tcb_t *tp)
             return -1;
         }
 #ifdef DEBUG
-        ESP_LOGI(TAG, "RS8 decode: %d", rs8_ret);
+        ESP_LOGI(TAG, "RS decode: %d errors corrected, RS(%d, %d)", rs8_ret, tp->fx25_tagp->rs_code, tp->fx25_tagp->rs_info);
 #endif
         buf_len = fx25_unbit_stuffing(tp, buf);
     }
