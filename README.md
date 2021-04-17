@@ -1,11 +1,11 @@
-# M5TNC
+# ESP32TNC
 
-M5TNC is a Terminal Node Controller (TNC) that is implemented on M5Stack products.
+ESP32TNC is a Terminal Node Controller (TNC) that is implemented for Espressif ESP32 processor.
 
 feature
 
-* using M5Atom Lite/Matrix or M5StickC Plus for processing unit
-* using small interface board (M5TNC HAT) connecting to a transceiver
+* supported hardware: FX.25 KISS TNC rev.1/2/3/4 and M5Atom, M5StickC Plus
+* using small interface board (ESP32TNC HAT) connecting to a transceiver
 * using ESP-IDF development framework to install TNC software
 * support Bell202 1200bps AFSK
 * implementing software modem, decoding capability same as TI TCM3105 modem chip
@@ -23,9 +23,9 @@ feature
 ![m5-tnc-1](image/m5-tnc-3.jpg)
 ![m5-tnc-2](image/m5-tnc-2.jpg)
 
-## M5TNC HAT
+## ESP32TNC HAT
 
-M5TNC HAT is small interface board for connecting to a transceiver.
+ESP32TNC HAT is small interface board for connecting to a transceiver.
 
 * size is 24x24mm (same as footprint of M5Atom)
 * same PCB can support both M5Atom and M5StickC Plus
@@ -85,12 +85,12 @@ for Standard/Icom/Yaesu
 for Kenwood
 ![kenwood](image/m5-solder-kenwood.png)
 
-## Installing the M5TNC software
+## Installing the ESP32TNC software
 
 * install [ESP-IDF](https://docs.espressif.com/projects/esp-idf/en/latest/esp32/), ESP-IDF v4.2 is needed
 * download TNC software
 ```
-git clone https://github.com/amedes/M5TNC.git
+git clone https://github.com/amedes/ESP32TNC.git
 ```
 * configure TNC software
 ```
@@ -111,13 +111,13 @@ idf.py -p PORT -b 1500000 flash monitor
 
 # Known Issues
 
-* M5TNC will hang up when a packet radio application opens the USB com port.
+* ESP32TNC will hang up when a packet radio application opens the USB com port.
 
 The auto-download circuit of M5Atom/M5StickC Plus is wrong.
-So opening of the USB com port may reset the M5TNC and keep the reset state depending on the com port driver behavior.
+So opening of the USB com port may reset the ESP32TNC and keep the reset state depending on the com port driver behavior.
 There is no workaround to avoid this fault.  The following procedure may help you.
 
-1. unplug the M5TNC from the computer
-1. plug the M5TNC to the computer again and pray for luck
+1. unplug the ESP32TNC from the computer
+1. plug the ESP32TNC to the computer again and pray for luck
 1. re-execute the packet radio application
 1. repeat above procedure until good luck becomes...
