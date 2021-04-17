@@ -232,9 +232,9 @@ static int fx25_packet_decode(tcb_t *tp)
     //tp->fx25_data[tp->fx25_tagp->rs_code / 2] ^= 1;
     int rs8_ret = rs8_decode(tp->fx25_data, tp->fx25_tagp->rs_code, tp->fx25_tagp->rs_code - tp->fx25_tagp->rs_info);
     if (rs8_ret == RS8_ERR) {
-        ESP_LOGI(TAG, "RS decode: decode error");
+        ESP_LOGI(TAG, "RS decode: decode error, port=%d", tp->port);
     } else {
-        ESP_LOGI(TAG, "RS decode: %d errors corrected, RS(%d, %d)", rs8_ret, tp->fx25_tagp->rs_code, tp->fx25_tagp->rs_info);
+        ESP_LOGI(TAG, "RS decode: %d errors corrected, RS(%d, %d), port=%d", rs8_ret, tp->fx25_tagp->rs_code, tp->fx25_tagp->rs_info, tp->port);
         if (rs8_ret > 0) {
             for (int i = 0; i < tp->fx25_tagp->rs_code; i++) {
                 printf("%02x, ", tp->fx25_data[i]);
@@ -244,7 +244,7 @@ static int fx25_packet_decode(tcb_t *tp)
         }
         int buf_len = fx25_unbit_stuffing(tp, buf);
         if (buf_len > 0 && crc16_le(0, buf, buf_len) == GOOD_CRC) {
-            ESP_LOGI(TAG, "FCS is correct");
+            ESP_LOGI(TAG, "FCS is correct, port=%d", tp->port);
         }
     }
 #endif
@@ -253,17 +253,21 @@ static int fx25_packet_decode(tcb_t *tp)
 
     if (buf_len <= 0 || crc16_le(0, buf, buf_len) != GOOD_CRC) { // FCS error
 
-#ifdef DEBUG
-        ESP_LOGI(TAG, "FCS error detected");
+#ifdef FX25_STAT
+        tp->fx25_cnt_fcs_err++;
 #endif
-        tp->fx25_data[0] = AX25_FLAG;
+
+#ifdef DEBUG
+        ESP_LOGI(TAG, "FCS error detected, port=%d", tp->port);
+#endif
+        tp->fx25_data[0] = AX25_FLAG; // the byte must be 0x7e
         int rs8_ret = rs8_decode(tp->fx25_data, tp->fx25_tagp->rs_code, tp->fx25_tagp->rs_code - tp->fx25_tagp->rs_info);
         if (rs8_ret == RS8_ERR) {
             free(kiss_buf);
             return -1;
         }
 #ifdef DEBUG
-        ESP_LOGI(TAG, "RS decode: %d errors corrected, RS(%d, %d)", rs8_ret, tp->fx25_tagp->rs_code, tp->fx25_tagp->rs_info);
+        ESP_LOGI(TAG, "RS decode: %d errors corrected, RS(%d, %d), port=%d", rs8_ret, tp->fx25_tagp->rs_code, tp->fx25_tagp->rs_info, tp->port);
 #endif
         buf_len = fx25_unbit_stuffing(tp, buf);
     }
@@ -274,8 +278,18 @@ static int fx25_packet_decode(tcb_t *tp)
     }
     
 	kiss_buf[0] = tp->port << 4;
+
+#if defined(DEBUG) || defined(FX25_STAT)
+#ifdef FX25_STAT
+    tp->fx25_cnt_fx25++;
+#endif
+    if (xTaskGetTickCount() - tp->decode_time > 1000 / portTICK_PERIOD_MS) { // AX.25 packet decode fail
+    	kiss_packet_send(kiss_buf, buf_len + 1 - 2); // add kiss_type, delete FCS
+    }
+#else
 	kiss_packet_send(kiss_buf, buf_len + 1 - 2); // add kiss_type, delete FCS
-    
+#endif
+
     free(kiss_buf);
 
     return 0;   
@@ -298,7 +312,9 @@ void fx25_decode_bit(tcb_t *tp, uint8_t bit)
             tp->fx25_state = FX25_DATA;
             tp->fx25_data_cnt = 0;
             tp->fx25_data_bit_cnt = 0;
-            
+#ifdef FX25_STAT
+            tp->fx25_cnt_tag++;
+#endif
             break;
 
         case FX25_DATA:
@@ -313,8 +329,13 @@ void fx25_decode_bit(tcb_t *tp, uint8_t bit)
 
                 if (tp->fx25_data_cnt >= tp->fx25_tagp->rs_code) {
 
-#ifdef DEBUG
+#if defined(DEBUG) || defined(FX25_STAT)
 					fx25_packet_decode(tp);
+#ifdef FX25_STAT
+                    ESP_LOGI(TAG, "FX.25 STAT: PORT=%d TAG=%d FX25=%d AX25=%d FCS_ERR=%d RS_DEC=%d",
+                        tp->port, tp->fx25_cnt_tag, tp->fx25_cnt_fx25, tp->fx25_cnt_tag - tp->fx25_cnt_fcs_err, tp->fx25_cnt_fcs_err,
+                        tp->fx25_cnt_fx25 - (tp->fx25_cnt_tag - tp->fx25_cnt_fcs_err));
+#endif
 #else
 			    	if (xTaskGetTickCount() - tp->decode_time > 1000 / portTICK_PERIOD_MS) { // AX.25 packet decode fail
                    		fx25_packet_decode(tp);

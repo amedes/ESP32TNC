@@ -117,6 +117,12 @@ typedef struct TCB { // TNC Control Block
     uint8_t fx25_parity; // 0: AX.25, >= 2: FX.25 number of parity bytes
     // AX.25 packet decode time
     uint32_t decode_time;
+#ifdef FX25_STAT
+    // FX.25 Statistics
+    uint16_t fx25_cnt_tag;
+    uint16_t fx25_cnt_fx25;
+    uint16_t fx25_cnt_fcs_err;
+#endif
 #endif
 
     // decode bit

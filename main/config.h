@@ -180,3 +180,7 @@
 #ifndef GPIO_CDT_PIN
 #define GPIO_CDT_PIN 0
 #endif
+
+#ifdef CONFIG_FX25_STAT
+#define FX25_STAT 1
+#endif

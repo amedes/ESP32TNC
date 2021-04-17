@@ -1,4 +1,4 @@
-menu "M5TNC Configuration"
+menu "ESP32TNC Configuration"
 
 choice
     prompt "Hardware type"
@@ -192,4 +192,8 @@ config DEBUG
     bool "output debug message"
     default "n"
 
+config FX25_STAT
+    bool "output FX.25 FEC statistics report"
+    default "n"
+    depends on FX25_ENABLE
 endmenu
