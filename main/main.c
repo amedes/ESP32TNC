@@ -34,6 +34,7 @@
 #include "filter.h"
 
 #include "config.h"
+#include "send.h"
 
 #ifdef M5STICKC
 #include "m5stickc.h"
@@ -142,11 +143,13 @@ static void send_packet_task(void *arg)
 	    pkt_len = make_packet(tp, packet, PACKET_SIZE);
 	    memcpy(&packet[CALLSIGN_LEN], src_addr, CALLSIGN_LEN); // src address
 
+        send_packet(tp, packet, pkt_len, SEND_DEFAULT_PARITY);
+#if 0
 	    if (xRingbufferSend(tp->input_rb, packet, pkt_len, portMAX_DELAY) != pdTRUE) {
 	        ESP_LOGW(TAG, "xRingbufferSend() fail, port = %d", tp->port);
 	        continue;
 	    }
-
+#endif
     }
 }
 #endif // BEACON

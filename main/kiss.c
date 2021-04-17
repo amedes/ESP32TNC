@@ -42,10 +42,13 @@ void kiss_process_frame(kcb_t *kp)
     switch (cmd) {
 	case CMD_DATA:
 	    // send data to the port
-	    if (xRingbufferSend(tp->input_rb, &kp->data_buf[1], kp->data_size - 1, kp->wait) != pdTRUE) {
-		ESP_LOGW(TAG, "xRingbufferSend() fail, size = %d, port = %d",
-			kp->data_size - 1,
-			port);
+#ifdef FX25_ENABLE
+		kp->data_buf[0] = tp->fx25_parity; // number of FX.25 parity
+#else
+		kp->data_buf[0] = 0; // AX.25 packet
+#endif
+	    if (xRingbufferSend(tp->input_rb, kp->data_buf, kp->data_size, kp->wait) != pdTRUE) {
+			ESP_LOGW(TAG, "xRingbufferSend() fail, size = %d, port = %d", kp->data_size - 1, port);
 	    }
 	    break;
 
@@ -84,94 +87,94 @@ void kiss_process_frame(kcb_t *kp)
 void kiss_process_char(kcb_t *kp, uint8_t ch)
 {
     switch (kp->data_state) {
-	case DATA_IDLE:
-	    ESP_LOGD(TAG, "DATA_IDLE");
-	    if (ch == KISS_FEND) {
-		kp->data_state = DATA_INFRAME;
-		kp->data_size = 0;
-		break;
-	    }
+		case DATA_IDLE:
+	    	ESP_LOGD(TAG, "DATA_IDLE");
+	    	if (ch == KISS_FEND) {
+				kp->data_state = DATA_INFRAME;
+				kp->data_size = 0;
+				break;
+	    	}
 
-	    // process console command
-	    switch (ch) {
-		case 'K': // detect 'K' of "KISS ON" command
-		case 'k':
-		    kp->monitor_mode = false;
-		    ESP_LOGI(TAG, "kiss mode");
-		    break;
+	    	// process console command
+	    	switch (ch) {
+				case 'K': // detect 'K' of "KISS ON" command
+				case 'k':
+		    		kp->monitor_mode = false;
+		    		ESP_LOGI(TAG, "kiss mode");
+		    		break;
 
-		case 'm': // monitor mode on/off
-		    kp->monitor_mode = !kp->monitor_mode;
-		    if (kp->monitor_mode) {
-			ESP_LOGI(TAG, "monitor mode");
-		    } else {
-			ESP_LOGI(TAG, "kiss mode");
-		    }
-		    break;
+				case 'm': // monitor mode on/off
+			    	kp->monitor_mode = !kp->monitor_mode;
+		    		if (kp->monitor_mode) {
+						ESP_LOGI(TAG, "monitor mode");
+		    		} else {
+						ESP_LOGI(TAG, "kiss mode");
+			    	}
+			    	break;
 
-		case '?':
-		    ESP_LOGI(TAG, "console command:");
-		    ESP_LOGI(TAG, "m: toggle monitor mode");
-		    ESP_LOGI(TAG, "K,k: turn on kiss mode");
-		    break;
-	    }
+				case '?':
+			    	ESP_LOGI(TAG, "console command:");
+		    		ESP_LOGI(TAG, "m: toggle monitor mode");
+		    		ESP_LOGI(TAG, "K,k: turn on kiss mode");
+		    		break;
+	    	}
 
-	    break;
+	    	break;
 
-	case DATA_INFRAME:
-	    //ESP_LOGD(TAG, "DATA_INFRAME");
-	    switch (ch) {
-		case KISS_FEND: // end of frame
-		    if (kp->data_size == 0) break;
+		case DATA_INFRAME:
+	    	//ESP_LOGD(TAG, "DATA_INFRAME");
+	    	switch (ch) {
+				case KISS_FEND: // end of frame
+		    		if (kp->data_size == 0) break;
 
-		    kiss_process_frame(kp);
-		    kp->data_state = DATA_IDLE;
-		    break;
+		    		kiss_process_frame(kp);
+		    		kp->data_state = DATA_IDLE;
+		    		break;
 
-		case KISS_FESC:
-		    kp->data_state = DATA_FESC;
-		    break;
+				case KISS_FESC:
+				    kp->data_state = DATA_FESC;
+		    		break;
 
-		default:
-		    if (kp->data_size >= DATA_BUF_SIZE) {
-			ESP_LOGW(TAG, "input buffer overflow");
-			kp->data_state = DATA_FEND; // discard the frame
-			break;
-		    }
+				default:
+		    		if (kp->data_size >= DATA_BUF_SIZE) {
+						ESP_LOGW(TAG, "input buffer overflow");
+						kp->data_state = DATA_FEND; // discard the frame
+						break;
+					}
 
-		    kp->data_buf[kp->data_size++] = ch;
-	    }
-	    break;
+		    		kp->data_buf[kp->data_size++] = ch;
+	    	}
+	    	break;
 
-	case DATA_FESC:
-	    ESP_LOGD(TAG, "DATA_FESC");
-	    switch (ch) {
-		case KISS_TFEND:
-		    ch = KISS_FEND;
-		    break;
+		case DATA_FESC:
+	    	ESP_LOGD(TAG, "DATA_FESC");
+	    	switch (ch) {
+				case KISS_TFEND:
+		    		ch = KISS_FEND;
+		    		break;
 
-		case KISS_TFESC:
-		    ch = KISS_FESC;
-		    break;
+				case KISS_TFESC:
+		    		ch = KISS_FESC;
+		    		break;
 
-		default:
-		    ESP_LOGW(TAG, "no TFEND or TFESC after FESC, ch = %02x", ch);
-	    }
+				default:
+		    		ESP_LOGW(TAG, "no TFEND or TFESC after FESC, ch = %02x", ch);
+	    	}
 
-	    if (kp->data_size >= DATA_BUF_SIZE) {
-		ESP_LOGW(TAG, "input buffer overflow");
-		kp->data_state = DATA_FEND;
-		break;
-	    }
+	    	if (kp->data_size >= DATA_BUF_SIZE) {
+				ESP_LOGW(TAG, "input buffer overflow");
+				kp->data_state = DATA_FEND;
+				break;
+	    	}
 
-	    kp->data_buf[kp->data_size++] = ch;
-	    kp->data_state = DATA_INFRAME;
-	    break;
+	    	kp->data_buf[kp->data_size++] = ch;
+	    	kp->data_state = DATA_INFRAME;
+	    	break;
 
-	case DATA_FEND: // stay in this state until FEND
-	    ESP_LOGD(TAG, "DATA_FEND");
-	    if (ch == KISS_FEND) {
-		kp->data_state = DATA_IDLE;
-	    }
-    }
+		case DATA_FEND: // stay in this state until FEND
+	    	ESP_LOGD(TAG, "DATA_FEND");
+			if (ch == KISS_FEND) {
+				kp->data_state = DATA_IDLE;
+	    	}
+	}
 }

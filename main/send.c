@@ -19,6 +19,7 @@
 
 #include "tnc.h"
 #include "fx25.h"
+#include "send.h"
 
 #ifdef M5ATOM
 #include "m5atom.h"
@@ -26,8 +27,33 @@
 
 static const char TAG[] = "send";
 
-
 #define BUSY_PORT 2
+
+void send_packet(tcb_t *tp, void const *data, size_t size, int parity)
+{
+	uint8_t *item;
+
+	if (xRingbufferSendAcquire(tp->input_rb, (void **)&item, size + 1, portMAX_DELAY) != pdTRUE) {
+		ESP_LOGW(TAG, "send_packet() fail");
+		return;
+	}
+
+	if (parity == SEND_DEFAULT_PARITY) {
+#ifdef FX25_ENABLE
+		item[0] = tp->fx25_parity;
+#else
+		item[0] = 0; // AX.25
+#endif
+	} else {
+		item[0] = parity;
+	}
+
+	memcpy(&item[1], data, size);
+
+	if (xRingbufferSendComplete(tp->input_rb, item) != pdTRUE) {
+		ESP_LOGW(TAG, "send_packet() fail");
+	}
+}
 
 void send_bytes(tcb_t *tp, void const *data, size_t data_len)
 {
@@ -147,91 +173,98 @@ static void send_task(void *arg)
 
 #define TXD_BYTES(t) ((t * 12 + 7) / 8)
 
-	uint8_t *item;
-	size_t itemsize;
+		uint8_t *item;
+		size_t itemsize;
+		uint8_t *buf;
+		size_t size;
+		uint8_t parity;
 
-	// receive from queue
-	if ((item = xRingbufferReceive(tp->input_rb, &itemsize, portMAX_DELAY)) == NULL) {
-	    ESP_LOGW(TAG, "xRingbufferReceive() fail, port = %d", tp->port);
-	    continue;
-	}
+		// receive from queue
+		if ((item = xRingbufferReceive(tp->input_rb, &itemsize, portMAX_DELAY)) == NULL) {
+	    	ESP_LOGW(TAG, "xRingbufferReceive() fail, port = %d", tp->port);
+	    	continue;
+		}
 
-	//ESP_LOGI(TAG, "xRingbufferReceiveSplit(), size = %d, port = %d", itemsize[0] + (item[1]) ? itemsize[1] : 0, tp->port);
+		parity = item[0];
+		buf = &item[1];
+		size = itemsize - 1;
+
+		//ESP_LOGI(TAG, "xRingbufferReceiveSplit(), size = %d, port = %d", itemsize[0] + (item[1]) ? itemsize[1] : 0, tp->port);
 
 #ifdef FX25TNCR2
-	gpio_set_level(tp->sta_led_pin, 1); // STA LED on
+		gpio_set_level(tp->sta_led_pin, 1); // STA LED on
 #endif
 
-	// begin to send packet
-	if (!tp->ptt) { // if ptt is off
+		// begin to send packet
+		if (!tp->ptt) { // if ptt is off
 
-	    ESP_LOGD(TAG, "PTT is off, port = %d", tp->port);
+	    	ESP_LOGD(TAG, "PTT is off, port = %d", tp->port);
 
-	    while (!tp->fullDuplex) { // if half duplex
+	    	while (!tp->fullDuplex) { // if half duplex
 
-	    	// check and wait for CDT off
-	    	if (xSemaphoreTake(tp->cdt_sem, portMAX_DELAY) != pdTRUE) {
-		    ESP_LOGW(TAG, "xSemaphoreTake() fail, port = %d", tp->port);
-		    continue;
-		}
+	    		// check and wait for CDT off
+	    		if (xSemaphoreTake(tp->cdt_sem, portMAX_DELAY) != pdTRUE) {
+		    		ESP_LOGW(TAG, "xSemaphoreTake() fail, port = %d", tp->port);
+		    		continue;
+				}
 
-		// give samephore
-		if (xSemaphoreGive(tp->cdt_sem) != pdTRUE) {
-		    ESP_LOGW(TAG, "xSemaphoreGive() fail, port = %d", tp->port);
-		}
+				// give samephore
+				if (xSemaphoreGive(tp->cdt_sem) != pdTRUE) {
+			    	ESP_LOGW(TAG, "xSemaphoreGive() fail, port = %d", tp->port);
+				}
 
-		// P-persistence
-		if ((rand_r(&seed) & 0xff) <= tp->persistence_P) break; // exit loop 
+				// P-persistence
+				if ((rand_r(&seed) & 0xff) <= tp->persistence_P) break; // exit loop 
 
-		// wait slot time
-		vTaskDelay(tp->SlotTime * 10 / portTICK_PERIOD_MS);
+				// wait slot time
+				vTaskDelay(tp->SlotTime * 10 / portTICK_PERIOD_MS);
 
-	    } // while (!tp->fullDuplex)
+	    	} // while (!tp->fullDuplex)
 
-	    // transmitter on
+	    	// transmitter on
 
 #ifndef M5STICKC_AUDIO
-	    gpio_set_level(tp->ptt_pin, 1); // PTT on
+	    	gpio_set_level(tp->ptt_pin, 1); // PTT on
 #endif
 #ifdef M5ATOM
-	    m5atom_led_set_level(M5ATOM_LED_RED, 1); // PTT LED on
+	    	m5atom_led_set_level(M5ATOM_LED_RED, 1); // PTT LED on
 #endif
-	    tp->ptt = true;
+	    	tp->ptt = true;
 #ifdef DEBUG
-	    ESP_LOGI(TAG, "PTT on, gpio = %d, port = %d", tp->ptt_pin, tp->port);
-	    ESP_LOGI(TAG, "sending preamble, TXDELAY = %d, bytes = %d, port = %d", tp->TXDELAY, TXD_BYTES(tp->TXDELAY), tp->port);
+	    	ESP_LOGI(TAG, "PTT on, gpio = %d, port = %d", tp->ptt_pin, tp->port);
+	    	ESP_LOGI(TAG, "sending preamble, TXDELAY = %d, bytes = %d, port = %d", tp->TXDELAY, TXD_BYTES(tp->TXDELAY), tp->port);
 #endif
-	    // wait for TXDELAY
-	    for (int i = 0; i < TXD_BYTES(tp->TXDELAY); i++) {
-			uint8_t data = 0x7e; // flag (7E)
+	    	// wait for TXDELAY
+	    	for (int i = 0; i < TXD_BYTES(tp->TXDELAY); i++) {
+				uint8_t data = 0x7e; // flag (7E)
 		
-			send_bytes(tp, &data, sizeof(data));
-	    }
+				send_bytes(tp, &data, sizeof(data));
+	    	}
 
-	    //ESP_LOGI(TAG, "sent preamble, port = %d", tp->port);
+	    	//ESP_LOGI(TAG, "sent preamble, port = %d", tp->port);
 
-	} // if (!tp->ptt)
+		} // if (!tp->ptt)
 
 #ifdef FX25_ENABLE
-	if (tp->fx25_parity > 0) {
+		if (parity > 0) {
 #ifdef DEBUG
-	    ESP_LOGI(TAG, "send FX.25, parity = %d", tp->fx25_parity);
+	    	ESP_LOGI(TAG, "send FX.25, parity = %d", parity);
 #endif
-	    if (fx25_send_packet(tp, item, itemsize, tp->fx25_parity) != 0) {
+	    	if (fx25_send_packet(tp, buf, size, parity) != 0) {
 #ifdef DEBUG
-		    ESP_LOGI(TAG, "send FX.25 packet fail");
+		    	ESP_LOGI(TAG, "send FX.25 packet fail");
 #endif
-	    	packet_send(tp, item, itemsize);		
+	    		packet_send(tp, buf, size);		
+			}
+		} else {
+		    packet_send(tp, buf, size);
 		}
-	} else {
-	    packet_send(tp, item, itemsize);
-	}
 #else
-	packet_send(tp, item, itemsize);
-#endif
+		packet_send(tp, buf, size);
+#endif // FX25_ENABLE
 
-	// return item
-	vRingbufferReturnItem(tp->input_rb, item);
+		// return item
+		vRingbufferReturnItem(tp->input_rb, item);
 
     } // while (1)
 }
