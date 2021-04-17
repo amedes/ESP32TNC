@@ -55,11 +55,11 @@ static void lcd_put_number(int num)
 }
 #endif
 
-void lcd_dump_packet(uint8_t *item[2], size_t size[2])
+void lcd_dump_packet(uint8_t *item, size_t size)
 {
     int i;
     int in_addr = true;
-    int len = size[0];
+    int len = size;
     static const uint8_t addr_color[3] = {
 	LCD_INV_RED,	// destination
 	LCD_INV_GREEN,	// source
@@ -67,38 +67,36 @@ void lcd_dump_packet(uint8_t *item[2], size_t size[2])
     };
     int n = 0; // count address
    
-    if (item[1] != NULL) len += size[1];
-
     if (len < AX25_MIN_PKT_SIZE) return;
 
     tty_lcd_color(addr_color[0]); // destination address
 
     for (i = 1; i < len; i++) {
-	int c;
+		int c;
 
-	c = (i < size[0]) ? item[0][i] : item[1][i - size[0]];
+		c = item[i];
+		
+		if (in_addr) {
+	    	if (c & 1) in_addr = false;
+	    	c >>= 1; // for addr field shift
 
-	if (in_addr) {
-	    if (c & 1) in_addr = false;
-	    c >>= 1; // for addr field shift
+	    	if ((i - 1) % AX25_ADDR_LEN == AX25_ADDR_LEN - 1) { // SSID
+			lcd_put_ssid(c);
+			lcd_packet_putchar(in_addr ? ',' : ':');
 
-	    if ((i - 1) % AX25_ADDR_LEN == AX25_ADDR_LEN - 1) { // SSID
-		lcd_put_ssid(c);
-		lcd_packet_putchar(in_addr ? ',' : ':');
+			// change color for src/repeater addr
+			if (++n > 2) n = 2;
+			tty_lcd_color(addr_color[n]);
 
-		// change color for src/repeater addr
-		if (++n > 2) n = 2;
-		tty_lcd_color(addr_color[n]);
+	    	} else {
+				if (c != ' ') lcd_packet_putchar(c);
+	    	}
 
-	    } else {
-		if (c != ' ') lcd_packet_putchar(c);
-	    }
+	    	if (!in_addr) tty_lcd_color(LCD_WHITE); // restore default color
 
-	    if (!in_addr) tty_lcd_color(LCD_WHITE); // restore default color
-
-	} else {
-	    lcd_packet_putchar(c);
-	}
+		} else {
+	    	lcd_packet_putchar(c);
+		}
     }
     tty_write("\n", 1);
 }

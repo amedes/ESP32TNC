@@ -39,5 +39,5 @@ enum FX25TAG_NO {
 
 typedef struct TCB tcb_t;
 
-//int fx25_send_packet(tcb_t *tp, void *data, size_t data_len, int parity);
-int fx25_send_packet(tcb_t *tp, uint8_t *data[2], size_t data_len[2], int parity);
+int fx25_send_packet(tcb_t *tp, void *data, size_t data_len, int parity);
+//int fx25_send_packet(tcb_t *tp, uint8_t *data[2], size_t data_len[2], int parity);

@@ -127,13 +127,13 @@ int bit_stuffing(uint8_t *outbuf, size_t outbuf_size, uint8_t *inbuf, size_t inb
 
 /*
  * make AX.25 packet with bit stuffing
- * *buf[2]: input data
- * size[2]: input data length
+ * *buf: input data
+ * size: input data length
  * buff: output buffer
  * buff_len: buffer length
  * return: bit length of AX.25 packet
 */
-int fx25_bit_stuffing(uint8_t *buf[2], size_t size[2], uint8_t buff[], int buff_len)
+int fx25_bit_stuffing(uint8_t *buf, size_t size, uint8_t buff[], int buff_len)
 {
     int bit_len = 0;
     int buff_index = 0;
@@ -144,15 +144,13 @@ int fx25_bit_stuffing(uint8_t *buf[2], size_t size[2], uint8_t buff[], int buff_
     int do_bitstuffing = true; // 1: do bit stuffing, 0: do not
     uint16_t fcs;
 
-    int packet_size = size[0];
-    if (buf[1]) packet_size += size[1];
+    int packet_size = size;
 
     if (packet_size <= 0) return -1;
 
     //ESP_LOGI(TAG, "packet_send_split(), size = %d, port = %d", packet_size, tp->port);
 
-    fcs = crc16_le(0, buf[0], size[0]); // CRC-16/X.25
-    if (buf[1]) fcs = crc16_le(fcs, buf[1], size[1]);
+    fcs = crc16_le(0, buf, size); // CRC-16/X.25
 
 #define AX25_FLAG 0x7e
 
@@ -172,10 +170,8 @@ int fx25_bit_stuffing(uint8_t *buf[2], size_t size[2], uint8_t buff[], int buff_
 		bitq_bits = 8;
 		do_bitstuffing = true;
 
-		if (i < size[0]) { // send buf[0] data
-	    	bitq = buf[0][i];
-		} else if (i < packet_size) { // send buf[1] data
-		    bitq = buf[1][i - size[0]];
+		if (i < packet_size) { // send buf[0] data
+	    	bitq = buf[i];
 		} else if (i < packet_size + 1) { // send FCS
 	    	bitq = fcs;
 	    	bitq_bits = 16;
@@ -247,7 +243,7 @@ int fx25_bit_stuffing(uint8_t *buf[2], size_t size[2], uint8_t buff[], int buff_
 
 // send FX.25 packet
 // parity: 0: AX.25, 2..64: FX.25
-int fx25_send_packet(tcb_t *tp, uint8_t *data[2], size_t data_len[2], int parity)
+int fx25_send_packet(tcb_t *tp, void *data, size_t data_len, int parity)
 {
     fx25tag_t const *tagp;
     int bit_len;
@@ -256,8 +252,7 @@ int fx25_send_packet(tcb_t *tp, uint8_t *data[2], size_t data_len[2], int parity
     size_t buf_len;
     size_t data_size;
 
-    data_size = data_len[0];
-    if (data[1]) data_size += data_len[1];
+    data_size = data_len;
 
     if (data_size > FX25_DATA_LEN_MAX) return -1; // data too large
 
@@ -288,30 +283,11 @@ int fx25_send_packet(tcb_t *tp, uint8_t *data[2], size_t data_len[2], int parity
 	    buf[i] = flag2 >> (8 - shift);
 	}
 
-#if 1
 	// add parity
 	if (rs8_encode(buf, tagp->rs_info, &buf[tagp->rs_info], parity) != RS8_OK) {
 	    free(buf);
 	    return -1;
 	}
-#else
-	{
-	    uint8_t *rsbuf = calloc(255, 1);
-	    assert(rsbuf != NULL);
-	    
-	    memcpy(rsbuf, buf, tagp->rs_info);
-	    int parity = tagp->rs_code - tagp->rs_info;
-	    assert(rs8_encode(rsbuf, 255 - parity, &rsbuf[255 - parity], parity) == RS8_OK);
-#if 1
-	    memcpy(&buf[tagp->rs_info], &rsbuf[255 - parity], parity);
-#else
-	    for (int i = 0; i < parity; i++) {
-		buf[tagp->rs_info + i] = rsbuf[255 - i]; // copy reverse order
-	    }
-#endif
-	    free(rsbuf);
-	}
-#endif
 
 #ifdef DEBUG
 	ESP_LOGI(TAG, "fx25_send_packet(): RS(%d, %d)", tagp->rs_code, tagp->rs_info);

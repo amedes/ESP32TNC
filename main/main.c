@@ -142,7 +142,7 @@ static void send_packet_task(void *arg)
 	    pkt_len = make_packet(tp, packet, PACKET_SIZE);
 	    memcpy(&packet[CALLSIGN_LEN], src_addr, CALLSIGN_LEN); // src address
 
-	    if (xRingbufferSend(tp->ringbuf, packet, pkt_len, portMAX_DELAY) != pdTRUE) {
+	    if (xRingbufferSend(tp->input_rb, packet, pkt_len, portMAX_DELAY) != pdTRUE) {
 	        ESP_LOGW(TAG, "xRingbufferSend() fail, port = %d", tp->port);
 	        continue;
 	    }

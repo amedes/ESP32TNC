@@ -90,7 +90,7 @@ typedef struct FX25TAG fx25tag_t;
 typedef struct TCB { // TNC Control Block
     //QueueHandle_t queue; // send data to modem
     RingbufHandle_t queue; // send data to modem
-    RingbufHandle_t ringbuf; // receive data from uart/tcp
+    RingbufHandle_t input_rb; // receive data from uart/tcp, ringbuffer nosplit
     TaskHandle_t task;
     
     uint8_t port; // port NO. 0 - 5

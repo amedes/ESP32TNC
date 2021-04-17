@@ -42,7 +42,7 @@ void kiss_process_frame(kcb_t *kp)
     switch (cmd) {
 	case CMD_DATA:
 	    // send data to the port
-	    if (xRingbufferSend(tp->ringbuf, &kp->data_buf[1], kp->data_size - 1, kp->wait) != pdTRUE) {
+	    if (xRingbufferSend(tp->input_rb, &kp->data_buf[1], kp->data_size - 1, kp->wait) != pdTRUE) {
 		ESP_LOGW(TAG, "xRingbufferSend() fail, size = %d, port = %d",
 			kp->data_size - 1,
 			port);

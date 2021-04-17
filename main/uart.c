@@ -32,14 +32,6 @@
 RingbufHandle_t uart_rb;
 TaskHandle_t task;
 
-#if 0
-#ifdef TEXT_MODE
-uint8_t uart_monitor_mode = true;	// text mode
-#else
-uint8_t uart_monitor_mode = false;	// kiss mode
-#endif
-#endif
-
 static kcb_t kcb = {
     .data_state = DATA_IDLE,
     .data_size = 0,
@@ -66,9 +58,9 @@ static void uart_putchar(int c)
     char ch = c;
 
     if (ch >= ' ' && ch <= '~') {
-	uart_write_bytes(uart_num, &ch, sizeof(ch));
+		uart_write_bytes(uart_num, &ch, sizeof(ch));
     } else {
-	uart_write_bytes(uart_num, buf, snprintf(buf, BUF_SIZE, "<%02x>", ch));
+		uart_write_bytes(uart_num, buf, snprintf(buf, BUF_SIZE, "<%02x>", ch));
     }
 }
 
@@ -84,15 +76,13 @@ static void uart_put_number(int num)
     uart_write_bytes(uart_num, buf, snprintf(buf, BUF_SIZE, "%d", num));
 }
 
-static void ax25_dump_packet(uint8_t *item[2], size_t size[2])
+static void ax25_dump_packet(uint8_t *item, size_t size)
 {
     int i;
     int in_addr = true;
-    int len = size[0];
+    int len = size;
     //uint8_t *data = (uint8_t *)item[0];
    
-    if (item[1] != NULL) len += size[1];
-
     if (len < AX25_MIN_PKT_SIZE) return;
 
     //fcs = data[len - 1] << 8 | data[len - 2];
@@ -101,27 +91,9 @@ static void ax25_dump_packet(uint8_t *item[2], size_t size[2])
 
     //printf("%d:%d:", tp->port, ++tp->pkts);
 
-#if 0
-    int num;
-
-    // extract FCS part
-    i = len - 1;
-    num = (i < size[0]) ? item[0][i] : item[1][i - size[0]];
-    num <<= 8;
-    i = len - 2;
-    num |= (i < size[0]) ? item[0][i] : item[1][i - size[0]];
-
-    // extract port No. and packet count
-    uart_put_number(num >> 12); // port No
-    uart_putchar(':');
-    uart_put_number(num & 0x0fff); // pkt cnt
-    uart_putchar(':');
-
-    for (i = 0; i < len - 2; i++) {
-#else
     static int pkts[TNC_PORTS]; // packet counter
 
-    i = item[0][0] >> 4; // port number
+    i = item[0] >> 4; // port number
     uart_put_number(i); // port number
     uart_putchar(':');
     uart_put_number(++pkts[i]);
@@ -130,24 +102,23 @@ static void ax25_dump_packet(uint8_t *item[2], size_t size[2])
     uart_putchar(':');
 
     for (i = 1; i < len; i++) {
-#endif
-	int c;
+		int c;
 
-	c = (i < size[0]) ? item[0][i] : item[1][i - size[0]];
+		c = item[i];
 
-	if (in_addr) {
-	    in_addr = (c & 1) == 0;
-	    c >>= 1; // for addr field shift
+		if (in_addr) {
+		    in_addr = (c & 1) == 0;
+	    	c >>= 1; // for addr field shift
 
-	    if ((i - 1) % AX25_ADDR_LEN == AX25_ADDR_LEN - 1) { // SSID
-		uart_put_ssid(c);
-		uart_putchar(in_addr ? ',' : ':');
-	    } else {
-		if (c != ' ') uart_putchar(c);
-	    }
-	} else {
-	    uart_putchar(c);
-	}
+	    	if ((i - 1) % AX25_ADDR_LEN == AX25_ADDR_LEN - 1) { // SSID
+				uart_put_ssid(c);
+				uart_putchar(in_addr ? ',' : ':');
+			} else {
+				if (c != ' ') uart_putchar(c);
+	    	}
+		} else {
+	    	uart_putchar(c);
+		}
     }
     uart_write_bytes(uart_num, "\r\n", 2);
     //printf("<%02x%02x>\n", data[len-1], data[len-2]);
@@ -159,17 +130,15 @@ static void ax25_dump_packet(uint8_t *item[2], size_t size[2])
 #define KISS_TFESC 0xdd
 
 // make kiss frame and send it to uart
-static void kiss_output_packet(uint8_t *item[2], size_t size[2])
+static void kiss_output_packet(uint8_t *item, size_t size)
 {
+	uint8_t *buf = item;
+	if (buf == NULL) return;
+
     // frame start
     uart_write_bytes(uart_num, "\xc0", 1); // FEND
 
-    for (int j = 0; j < 2; j++) {
-
-	uint8_t *buf = item[j];
-	if (buf == NULL) continue;
-
-	size_t len = size[j];
+	size_t len = size;
 	int top = 0;
 	int i;
 
@@ -178,19 +147,19 @@ static void kiss_output_packet(uint8_t *item[2], size_t size[2])
 	    uint8_t c = buf[i];
 
 	    switch (c) {
-		case KISS_FEND:
-		    buf[i] = KISS_FESC;
-		    /* FALLTHROUGH */
+			case KISS_FEND:
+		    	buf[i] = KISS_FESC;
+		    	/* FALLTHROUGH */
 
-		case KISS_FESC:
-		    uart_write_bytes(uart_num, (void *)&buf[top], i + 1 - top);
+			case KISS_FESC:
+		    	uart_write_bytes(uart_num, (void *)&buf[top], i + 1 - top);
 
-		    if (c == KISS_FEND) {
-		    	buf[i] = KISS_TFEND;
-		    } else { // c == KISS_FESC
-			buf[i] = KISS_TFESC;
-		    }
-		    top = i;
+		    	if (c == KISS_FEND) {
+		    		buf[i] = KISS_TFEND;
+		    	} else { // c == KISS_FESC
+					buf[i] = KISS_TFESC;
+		    	}
+		    	top = i;
 	    }
 
 	}
@@ -198,11 +167,9 @@ static void kiss_output_packet(uint8_t *item[2], size_t size[2])
 	if (i - top > 0) {
 	    uart_write_bytes(uart_num, (void *)&buf[top], i - top);
 	}
-    }
 
     // frame end
     uart_write_bytes(uart_num, "\xc0", 1); // FEND
-
 }
 
 #define TCP_CONNS 8
@@ -221,11 +188,11 @@ int uart_add_ringbuf(RingbufHandle_t rb)
     for (int i = 0; i < TCP_CONNS; i++) {
 
     	if (tcpcb[i].ringbuf == NULL) {
-	    tcpcb[i].ringbuf = rb;
-	    tcp_conn = true;
+	    	tcpcb[i].ringbuf = rb;
+	    	tcp_conn = true;
 
-	    return true;
-	}
+	    	return true;
+		}
     }
 
     return false;
@@ -236,40 +203,26 @@ int uart_delete_ringbuf(RingbufHandle_t rb)
     for (int i = 0; i < TCP_CONNS; i++) {
 
     	if (tcpcb[i].ringbuf == rb) {
-	    tcpcb[i].ringbuf = NULL;
+	    	tcpcb[i].ringbuf = NULL;
 
-	    return true;
-	}
+	    	return true;
+		}
     }
 
     return false;
 }
 
-#define TCP_PKT_SIZE 1500
-static uint8_t tcp_buf[TCP_PKT_SIZE];
-
-static void tcp_output_packet(void *item[2], size_t size[2])
+static void tcp_output_packet(void *item, size_t size)
 {
-    size_t len = size[0];
-
-    if (item[1]) len += size[1];
-
-    if (len > TCP_PKT_SIZE) {
-	ESP_LOGW(TAG, "tcp_output_packet(): packet size too large, size = %d", len);
-	return;
-    }
-    
-    memcpy(tcp_buf, item[0], size[0]);
-    if (item[1]) memcpy(&tcp_buf[size[0]], item[1], size[1]);
-
     int cnt = 0;
+
     for (int i = 0; i < TCP_CONNS; i++) {
-	if (tcpcb[i].ringbuf) {
-	    if (xRingbufferSend(tcpcb[i].ringbuf, tcp_buf, len, 0) != pdTRUE) {
-		ESP_LOGW(TAG, "tcp_output_packet(): xRingbufferSend() fail");
-	    }
-	    cnt++;
-	}
+		if (tcpcb[i].ringbuf) {
+		    if (xRingbufferSend(tcpcb[i].ringbuf, item, size, 0) != pdTRUE) { // nowait
+				ESP_LOGW(TAG, "tcp_output_packet(): xRingbufferSend() fail");
+	    	}
+	    	cnt++;
+		}
     }
     if (cnt == 0) tcp_conn = false;
 }
@@ -293,30 +246,30 @@ int uart_add_udp(struct netconn *conn, ip_addr_t *dst, int port)
     TickType_t now = xTaskGetTickCount();
 
     for (int i = 0; i < UDP_CONNS; i++) {
-	udpcb_t *up = &udpcb[i];
+		udpcb_t *up = &udpcb[i];
 
-	if (up->port && up->expire < now) up->port = 0; // expire
+		if (up->port && up->expire < now) up->port = 0; // expire
 
-	if (ip_addr_cmp(&up->addr, dst) && up->port == port) {
-	    // update expire time
-	    up->expire = now + (UDP_DEST_EXPIRE * 1000) / portTICK_PERIOD_MS;
+		if (ip_addr_cmp(&up->addr, dst) && up->port == port) {
+		    // update expire time
+	    	up->expire = now + (UDP_DEST_EXPIRE * 1000) / portTICK_PERIOD_MS;
 
-	    return false;
-	}
+	    	return false;
+		}
     }
 
     for (int i = 0; i < UDP_CONNS; i++) {
-	udpcb_t *up = &udpcb[i];
+		udpcb_t *up = &udpcb[i];
 
-	if (up->port == 0) {
-	    up->conn = conn;
-	    up->expire = now + (UDP_DEST_EXPIRE * 1000) / portTICK_PERIOD_MS;
-	    ip_addr_copy(up->addr, *dst);
-	    up->port = port;
-	    udp_conn = true;
+		if (up->port == 0) {
+		    up->conn = conn;
+	    	up->expire = now + (UDP_DEST_EXPIRE * 1000) / portTICK_PERIOD_MS;
+	    	ip_addr_copy(up->addr, *dst);
+	    	up->port = port;
+	    	udp_conn = true;
 	    
-	    return true;
-	}
+	    	return true;
+		}
     }
 
     return false;
@@ -328,94 +281,57 @@ int uart_delete_udp(ip_addr_t *dst, int port)
 
     int cnt = 0;
     for (int i = 0; i < UDP_CONNS; i++) {
-	udpcb_t *up = &udpcb[i];
+		udpcb_t *up = &udpcb[i];
 
-	if (ip_addr_cmp(&up->addr, dst) && up->port == port) {
-	    up->port = 0;
+		if (ip_addr_cmp(&up->addr, dst) && up->port == port) {
+	    	up->port = 0;
 
-	    return true;
+	    	return true;
+		}
+
+		if (up->expire < now) {
+	    	up->port = 0;
+		}
+
+		if (up->port) cnt++;
 	}
-
-	if (up->expire < now) {
-	    up->port = 0;
-	}
-
-	if (up->port) cnt++;
-    }
-    if (cnt == 0) udp_conn = false;
+	if (cnt == 0) udp_conn = false;
 
     return false;
 }
 
-void udp_output_packet(void *item[2], size_t size[2])
+void udp_output_packet(void *item, size_t size)
 {
     struct netbuf *nbuf = netbuf_new();
-#if 0
-    uint8_t *buf;
-    if ((buf = netbuf_alloc(nbuf, 1501 - 20 - 8)) == NULL) {
-	ESP_LOGW(TAG, "netbuf_alloc() fail");
 
-	netbuf_delete(nbuf);
+    if (netbuf_ref(nbuf, &item, size) != ERR_OK) {
+		ESP_LOGW(TAG, "netbuf_ref() fail");
 
-	return;
+		netbuf_delete(nbuf);
+
+		return;
     }
-
-    memset(buf, '.', 1501 - 20 - 8);
-    memcpy(buf, item[0], size[0]);
-    if (item[1]) memcpy(buf + size[0], item[1], size[1]);
-
-#else
-
-    if (netbuf_ref(nbuf, item[0], size[0]) != ERR_OK) {
-	ESP_LOGW(TAG, "netbuf_ref() fail");
-
-	netbuf_delete(nbuf);
-
-	return;
-    }
-
-    if (item[1]) {
-    	struct netbuf *nbuf2 = netbuf_new();
-
-	if (nbuf2 == NULL) {
-	    ESP_LOGW(TAG, "netbuf_new() fail");
-	    netbuf_delete(nbuf);
-
-	    return;
-	}
-
-	if (netbuf_ref(nbuf2, item[1], size[1]) != ERR_OK) {
-	    ESP_LOGW(TAG, "netbuf_ref() fail");
-
-	    netbuf_delete(nbuf);
-	    netbuf_delete(nbuf2);
-
-	    return;
-	}
-
-    	netbuf_chain(nbuf, nbuf2);
-    }
-#endif
 
     int cnt = 0;
     TickType_t now = xTaskGetTickCount();
     for (int i = 0; i < UDP_CONNS; i++) {
-	udpcb_t *up = &udpcb[i];
+		udpcb_t *up = &udpcb[i];
 
-	if (up->port) {
-	    if (up->expire < now) {
-		up->port = 0;
-		continue;
-	    }
+		if (up->port) {
 
-	    err_t err;
-	    if ((err = netconn_sendto(up->conn, nbuf, &up->addr, up->port)) != ERR_OK) {
-		ESP_LOGW(TAG, "udp: netconn_sendto() fail, err = %d", err);
-		if (err != ERR_MEM) up->port = 0;
-		continue;
-	    }
-	    cnt++;
-	}
+	    	if (up->expire < now) { // expire
+				up->port = 0;
+				continue;
+	    	}
+
+	    	err_t err;
+	    	if ((err = netconn_sendto(up->conn, nbuf, &up->addr, up->port)) != ERR_OK) {
+				ESP_LOGW(TAG, "udp: netconn_sendto() fail, err = %d", err);
+				if (err != ERR_MEM) up->port = 0;
+				continue;
+	    	}
+	    	cnt++;
+		}
     }
     if (cnt == 0) udp_conn = false;
 
@@ -425,35 +341,34 @@ void udp_output_packet(void *item[2], size_t size[2])
 static void uart_task(void *p)
 {
     RingbufHandle_t rb = (RingbufHandle_t)p;
-    uint8_t *item[2];
-    size_t size[2];
+    uint8_t *item;
+    size_t size;
 
     while (1) {
-	if (xRingbufferReceiveSplit(rb, (void **)&item[0], (void **)&item[1], &size[0], &size[1], portMAX_DELAY) != pdTRUE) {
-	    ESP_LOGW(TAG, "xRingbufferReceiveSplit() return not pdTRUE");
-	    continue;
-	}
+		if ((item = xRingbufferReceive(rb, &size, portMAX_DELAY)) == NULL) {
+		    ESP_LOGW(TAG, "xRingbufferReceive() fail");
+	    	continue;
+		}
 
-	if (kcb.monitor_mode) {
+		if (kcb.monitor_mode) {
 
-	    // output ascii text format
-	    ax25_dump_packet(item, size);
+		    // output ascii text format
+	    	ax25_dump_packet(item, size);
 
-	} else {
+		} else {
 
-	    // output kiss frame
-	    kiss_output_packet(item, size);
+		    // output kiss frame
+	    	kiss_output_packet(item, size);
 
-	}
+		}
 
-	if (tcp_conn) tcp_output_packet((void **)item, size);
-	if (udp_conn) udp_output_packet((void **)item, size);
+		if (tcp_conn) tcp_output_packet(item, size);
+		if (udp_conn) udp_output_packet(item, size);
 #ifdef M5STICKC
-	lcd_dump_packet((uint8_t **)item, size);
+		lcd_dump_packet(item, size);
 #endif
 
-	vRingbufferReturnItem(rb, item[0]);
-	if (item[1] != NULL) vRingbufferReturnItem(rb, item[1]);
+		vRingbufferReturnItem(rb, item);
     }
 }
 
@@ -469,23 +384,23 @@ static void uart_data_read(size_t size)
 
     while (remain > 0) {
 
-	if (remain > DATA_READ_BUF_SIZE) {
-	    read_size = DATA_READ_BUF_SIZE;
-	} else {
-	    read_size = remain;
-	}
+		if (remain > DATA_READ_BUF_SIZE) {
+		    read_size = DATA_READ_BUF_SIZE;
+		} else {
+		    read_size = remain;
+		}
 
-	len = uart_read_bytes(uart_num, buf, read_size, portMAX_DELAY);
-	if (len < 0) {
-	    ESP_LOGW(TAG, "uart_read_bytes() fail");
-	    return;
-	}
+		len = uart_read_bytes(uart_num, buf, read_size, portMAX_DELAY);
+		if (len < 0) {
+	    	ESP_LOGW(TAG, "uart_read_bytes() fail");
+	    	return;
+		}
 
-	for (int i = 0; i < len; i++) {
-	    kiss_process_char(&kcb, buf[i]);
-	}
+		for (int i = 0; i < len; i++) {
+		    kiss_process_char(&kcb, buf[i]);
+		}
 
-	remain -= len;
+		remain -= len;
     }
 }
 
@@ -496,58 +411,58 @@ static void uart_event_task(void *arg)
 
 
     while (1) {
-	if (xQueueReceive(uart_queue, &event, portMAX_DELAY) != pdTRUE) {
-	    ESP_LOGW(TAG, "xQueueReceive(event_queue) fail");
-	    continue;
-	}
-
-	switch (event.type) {
-
-	    case UART_DATA:
-		//ESP_LOGI(TAG, "UART_DATA: size = %d", event.size);
-		//uart_get_buffered_data_len(uart_num, &size);
-		//ESP_LOGI(TAG, "uart_get_buffered_data_len: size = %d", size);
-		uart_data_read(event.size);
-#if 0
-		for (int i = 0; i < event.size; i++) {
-		    uint8_t tmp;
-		    uart_read_bytes(uart_num, &tmp, sizeof(tmp), portMAX_DELAY);
-		    ESP_LOGI(TAG, "UART_DATA: char = %02x, %c", tmp, (tmp >= ' ' && tmp <= '~') ? tmp : '.');
+		if (xQueueReceive(uart_queue, &event, portMAX_DELAY) != pdTRUE) {
+		    ESP_LOGW(TAG, "xQueueReceive(event_queue) fail");
+	    	continue;
 		}
+
+		switch (event.type) {
+
+		    case UART_DATA:
+			//ESP_LOGI(TAG, "UART_DATA: size = %d", event.size);
+			//uart_get_buffered_data_len(uart_num, &size);
+			//ESP_LOGI(TAG, "uart_get_buffered_data_len: size = %d", size);
+			uart_data_read(event.size);
+#if 0
+			for (int i = 0; i < event.size; i++) {
+			    uint8_t tmp;
+		    	uart_read_bytes(uart_num, &tmp, sizeof(tmp), portMAX_DELAY);
+		    	ESP_LOGI(TAG, "UART_DATA: char = %02x, %c", tmp, (tmp >= ' ' && tmp <= '~') ? tmp : '.');
+			}
 #endif
-		break;
+			break;
 
-	    case UART_FIFO_OVF:
-		ESP_LOGW(TAG, "UART_FIFO_OVF");
-		uart_flush_input(uart_num);
-		xQueueReset(uart_queue);
-		break;
+	    	case UART_FIFO_OVF:
+				ESP_LOGW(TAG, "UART_FIFO_OVF");
+				uart_flush_input(uart_num);
+				xQueueReset(uart_queue);
+				break;
 
-	    case UART_BUFFER_FULL:
-		ESP_LOGW(TAG, "UART_BUFFER_FULL");
-		uart_flush_input(uart_num);
-		xQueueReset(uart_queue);
-		break;
+	    	case UART_BUFFER_FULL:
+				ESP_LOGW(TAG, "UART_BUFFER_FULL");
+				uart_flush_input(uart_num);
+				xQueueReset(uart_queue);
+				break;
 
-	    case UART_BREAK:
-		ESP_LOGW(TAG, "UART_BREAK");
-		break;
+	    	case UART_BREAK:
+				ESP_LOGW(TAG, "UART_BREAK");
+				break;
 
-	    case UART_PARITY_ERR:
-		ESP_LOGW(TAG, "UART_PARITY_ERR");
-		break;
+			case UART_PARITY_ERR:
+				ESP_LOGW(TAG, "UART_PARITY_ERR");
+				break;
 
-	    case UART_FRAME_ERR:
-		ESP_LOGW(TAG, "UART_FRAME_ERR");
-		break;
+	    	case UART_FRAME_ERR:
+				ESP_LOGW(TAG, "UART_FRAME_ERR");
+				break;
 
-	    case UART_PATTERN_DET:
-		ESP_LOGW(TAG, "UART_PATTERN_DET");
-		break;
+	    	case UART_PATTERN_DET:
+				ESP_LOGW(TAG, "UART_PATTERN_DET");
+				break;
 
-	    default:
-		ESP_LOGW(TAG, "uart event type: %d", event.type);
-	}
+	    	default:
+				ESP_LOGW(TAG, "uart event type: %d", event.type);
+		}
     }
 }
 
@@ -559,12 +474,12 @@ static void uart_event_task(void *arg)
 void uart_init(void)
 {
     uart_config_t uart_config = {
-	.baud_rate = 115200,
-	.data_bits = UART_DATA_8_BITS,
-	.parity = UART_PARITY_DISABLE,
-	.stop_bits = UART_STOP_BITS_1,
-	.flow_ctrl = UART_HW_FLOWCTRL_DISABLE,
-	//.source_clk = UART_SCLK_APB,
+		.baud_rate = 115200,
+		.data_bits = UART_DATA_8_BITS,
+		.parity = UART_PARITY_DISABLE,
+		.stop_bits = UART_STOP_BITS_1,
+		.flow_ctrl = UART_HW_FLOWCTRL_DISABLE,
+		//.source_clk = UART_SCLK_APB,
     };
     QueueHandle_t event_queue;
     ESP_ERROR_CHECK(uart_param_config(uart_num, &uart_config));
@@ -572,15 +487,14 @@ void uart_init(void)
 
     assert(xTaskCreatePinnedToCore(uart_event_task, "uart event task", 1024 * 4, event_queue, tskIDLE_PRIORITY + 0, NULL, tskNO_AFFINITY) == pdPASS);
 
-    uart_rb = xRingbufferCreate(UART_RB_SIZE, RINGBUF_TYPE_ALLOWSPLIT);
+    uart_rb = xRingbufferCreate(UART_RB_SIZE, RINGBUF_TYPE_NOSPLIT);
     if (uart_rb == NULL) {
 		ESP_LOGE(TAG, "xRingbufferCreate() fail");
 		abort();
     }
 
     if (xTaskCreatePinnedToCore(uart_task, "uart task", 1024 * 4, uart_rb, tskIDLE_PRIORITY + 0, &task, tskNO_AFFINITY) != pdPASS) {
-    //if (xTaskCreatePinnedToCore(uart_task, "uart task", 1024 * 4, uart_rb, tskIDLE_PRIORITY + 5, &task, 0) != pdPASS) {
-	ESP_LOGE(TAG, "xTaskCreatePinnedToCore() fail");
-	abort();
+		ESP_LOGE(TAG, "xTaskCreatePinnedToCore() fail");
+		abort();
     }
 }

@@ -34,7 +34,7 @@ void send_bytes(tcb_t *tp, void const *data, size_t data_len)
 	xRingbufferSend(tp->queue, data, data_len, portMAX_DELAY);
 }
 
-static void packet_send_split(tcb_t *tp, uint8_t *buf[2], size_t size[2])
+static void packet_send(tcb_t *tp, uint8_t *buf, size_t size)
 {
     uint32_t data = 0; // data to modem
     int data_bits = 0; // number of bits
@@ -43,15 +43,13 @@ static void packet_send_split(tcb_t *tp, uint8_t *buf[2], size_t size[2])
     int do_bitstuffing = true; // 1: do bit stuffing, 0: do not
     uint16_t fcs;
 
-    int packet_size = size[0];
-    if (buf[1]) packet_size += size[1];
+    int packet_size = size;
 
     if (packet_size <= 0) return;
 
-    //ESP_LOGI(TAG, "packet_send_split(), size = %d, port = %d", packet_size, tp->port);
+    //ESP_LOGI(TAG, "packet_send(), size = %d, port = %d", packet_size, tp->port);
 
-    fcs = crc16_le(0, buf[0], size[0]); // CRC-16/X.25
-    if (buf[1]) fcs = crc16_le(fcs, buf[1], size[1]);
+    fcs = crc16_le(0, buf, size); // CRC-16/X.25
 
 #define AX25_FLAG 0x7e
 
@@ -62,79 +60,76 @@ static void packet_send_split(tcb_t *tp, uint8_t *buf[2], size_t size[2])
 
     //ESP_LOGI(TAG, "send start flag, port = %d", tp->port);
 
-    for (int i = 0; i < packet_size + 2; i++) { // send buf[0..1], FCS and End flag
-	uint32_t bitq; // bit queue
-	int bitq_bits; // number of bits
+    for (int i = 0; i < packet_size + 2; i++) { // send buf[0..packet_size], FCS and End flag
+		uint32_t bitq; // bit queue
+		int bitq_bits; // number of bits
 
-	if (i < size[0]) { // send buf[0] data
-	    bitq = buf[0][i];
-	    bitq_bits = 8;
-	} else if (i < packet_size) { // send buf[1] data
-	    bitq = buf[1][i - size[0]];
-	    bitq_bits = 8;
-	} else if (i == packet_size) { // send FCS
-	    bitq = fcs;
-	    bitq_bits = 16;
-	} else { // send End flag
-	    bitq = AX25_FLAG;
-	    bitq_bits = 8;
-	    do_bitstuffing = false;
-	}
+		if (i < packet_size) { // send buf data
+	    	bitq = buf[i];
+	    	bitq_bits = 8;
+		} else if (i == packet_size) { // send FCS
+		    bitq = fcs;
+	    	bitq_bits = 16;
+		} else { // send End flag
+		    bitq = AX25_FLAG;
+		    bitq_bits = 8;
+		    do_bitstuffing = false;
+		}
 
-	while (bitq_bits-- > 0) {
-	    int bit;
+		while (bitq_bits-- > 0) {
+	    	int bit;
 
-	    if (insert_zero) {
+	    	if (insert_zero) {
 
-		bit = 0;
-		insert_zero = false;
+				bit = 0;
+				insert_zero = false;
 
-	    } else {
+	    	} else {
 
-		bit = bitq & 1;
-		bitq >>= 1;
+				bit = bitq & 1;
+				bitq >>= 1;
 
-	    	// do bit stuffing
-	    	if (do_bitstuffing) {
+	    		// do bit stuffing
+	    		if (do_bitstuffing) {
 
-		   if (bit) {
+		   			if (bit) {
 
 #define BIT_STUFFING_BITS 5
 		    
-		    	if (++count_ones >= BIT_STUFFING_BITS) { // insert zero
-			    insert_zero = true;
-			    bitq_bits++;
-			    count_ones = 0;
+		    			if (++count_ones >= BIT_STUFFING_BITS) { // insert zero
+			    			insert_zero = true;
+			    			bitq_bits++;
+			    			count_ones = 0;
+						}
+
+		   			} else {
+		    			count_ones = 0;
+		   			}
+
+				}
+
+	    	}
+
+	    	data |= bit << data_bits;
+
+	    	if (++data_bits >= 32) { // filled all 32 bits
+				send_bytes(tp, &data, sizeof(data));
+
+	    		data = 0;
+				data_bits = 0;
+
 			}
 
-		   } else {
-		    count_ones = 0;
-		   }
-
-		}
-
-	    }
-
-	    data |= bit << data_bits;
-
-	    if (++data_bits >= 32) { // filled all 32 bits
-		send_bytes(tp, &data, sizeof(data));
-
-	    	data = 0;
-		data_bits = 0;
-
-	    }
-
-	} // while (bitq_bits-- > 0)
+		} // while (bitq_bits-- > 0)
 
     } // for (i = 0; ..
 
     if (data_bits > 0) { // there is data to be sent
 
-	int byte_size = (data_bits + 7) / 8;
-	send_bytes(tp, &data, byte_size);
+		int byte_size = (data_bits + 7) / 8;
+		send_bytes(tp, &data, byte_size);
 
-    	//ESP_LOGI(TAG, "packet_send_split(): send extra %d bytes, port = %d", byte_size, tp->port);
+    	//ESP_LOGI(TAG, "packet_send(): send extra %d bytes, port = %d", byte_size, tp->port);
     }
 
 }
@@ -152,12 +147,12 @@ static void send_task(void *arg)
 
 #define TXD_BYTES(t) ((t * 12 + 7) / 8)
 
-	uint8_t *item[2];
-	size_t itemsize[2];
+	uint8_t *item;
+	size_t itemsize;
 
 	// receive from queue
-	if (xRingbufferReceiveSplit(tp->ringbuf, (void **)&item[0], (void **)&item[1], &itemsize[0], &itemsize[1], portMAX_DELAY) != pdTRUE) {
-	    ESP_LOGW(TAG, "xRingbufferReceiveSplit() fail, port = %d", tp->port);
+	if ((item = xRingbufferReceive(tp->input_rb, &itemsize, portMAX_DELAY)) == NULL) {
+	    ESP_LOGW(TAG, "xRingbufferReceive() fail, port = %d", tp->port);
 	    continue;
 	}
 
@@ -226,18 +221,17 @@ static void send_task(void *arg)
 #ifdef DEBUG
 		    ESP_LOGI(TAG, "send FX.25 packet fail");
 #endif
-	    	packet_send_split(tp, item, itemsize);		
+	    	packet_send(tp, item, itemsize);		
 		}
 	} else {
-	    packet_send_split(tp, item, itemsize);
+	    packet_send(tp, item, itemsize);
 	}
 #else
-	packet_send_split(tp, item, itemsize);
+	packet_send(tp, item, itemsize);
 #endif
 
 	// return item
-	vRingbufferReturnItem(tp->ringbuf, item[0]);
-	if (item[1]) vRingbufferReturnItem(tp->ringbuf, item[1]);
+	vRingbufferReturnItem(tp->input_rb, item);
 
     } // while (1)
 }
@@ -257,8 +251,8 @@ void send_init(tcb_t tcb[])
     	assert(tcb[i].queue != NULL);
 
 	// input queue
-		tcb[i].ringbuf = xRingbufferCreate(RINGBUF_SIZE, RINGBUF_TYPE_ALLOWSPLIT);
-    	assert(tcb[i].ringbuf != NULL);
+		tcb[i].input_rb = xRingbufferCreate(RINGBUF_SIZE, RINGBUF_TYPE_NOSPLIT);
+    	assert(tcb[i].input_rb != NULL);
 
 	// create send task
     	assert(xTaskCreatePinnedToCore(send_task, "send task", 4096, &tcb[i], tskIDLE_PRIORITY + 2, &tcb[i].task, 1) == pdPASS);
