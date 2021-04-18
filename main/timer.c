@@ -322,7 +322,7 @@ void mod_task(void *arg)
 #define WBUF_SIZE 3 // wave buffer size
 
 		    	//mp->pttoff_timer = WBUF_SIZE + 3; // PTT off (val - 3) * (1/1200) sec after sending data
-		    	mp->pttoff_timer = mp->bitq_cnt; // PTT off timer * (1/1200) sec after sending data
+		    	mp->pttoff_timer = mp->bitq_cnt + 8; // PTT off timer * (1/1200) sec after sending data
 
 			} else { // no data
 
@@ -408,7 +408,7 @@ void mod_task(void *arg)
 #endif
 		    	//ESP_LOGI(TAG, "ptt off: pin = %d, port = %d", tp->ptt_pin, tp->port);
 
-		    	GPIO.func_out_sel_cfg[mp->gpio_pin].func_sel = SIG_GPIO_OUT_IDX; // disable DAC output
+		    	//GPIO.func_out_sel_cfg[mp->gpio_pin].func_sel = SIG_GPIO_OUT_IDX; // disable DAC output
 
 		    	tp->ptt = false;
 #ifdef FX25TNCR2

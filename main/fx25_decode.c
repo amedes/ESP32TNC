@@ -7,6 +7,7 @@
 
 #include <stdio.h>
 #include <stdint.h>
+#include <string.h>
 #include "esp_log.h"
 #include "esp32/rom/crc.h"
 
@@ -15,11 +16,82 @@
 #include "tnc.h"
 #include "kiss.h"
 #include "fx25_decode.h"
+#include "send.h"
 
 #define AX25_FLAG 0x7e
 #define FX25_TAG_MATCH 8
 
 #define TAG "fx25_decode"
+
+
+static int fx25_decode_address(uint8_t *addr, uint8_t buf[])
+{
+    int ssid = (addr[CALLSIGN_LEN - 1] >> 1) & 0x0f;
+    uint8_t *p = buf;
+
+    for (int i = 0; i < CALLSIGN_LEN - 1; i++) {
+        int c = addr[i] >> 1;
+
+        if (c == ' ') break;
+        *p++ = c;
+    }
+
+    if (ssid > 0) {
+        p += snprintf((char *)p, 4, "-%d", ssid);
+    }
+
+    return p - buf;
+}
+
+#define FX25_STATUS_PACKET_SIZE 128
+
+static void fx25_send_status_packet(tcb_t *tp, uint8_t ax25buf[])
+{
+    static const uint8_t status_header[] = {
+    	'A' << 1, 'P' << 1, 'Z' << 1, 'F' << 1, '2' << 1, '5' << 1, // APZX25 experimental
+    	0xe0, // command(V2), ssid
+	    'N' << 1, 'O' << 1, 'C' << 1, 'A' << 1, 'L' << 1, 'L' << 1, // source address
+	    0x61, // command(V2), ssid, end of address field
+	    0x03, // control
+	    0xf0, // PID
+        ':', // APRS Message Data Type
+        'F', 'X', '2', '5', 'I', 'N', 'F', 'O', ' ',
+        ':',
+    };
+    static uint8_t src_addr[CALLSIGN_LEN];
+    uint8_t *packet;
+    uint8_t *p;
+
+    packet = malloc(FX25_STATUS_PACKET_SIZE);
+    if (packet == NULL) {
+        ESP_LOGW(TAG, "malloc() fail");
+        return;
+    }
+
+    if (src_addr[0] == 0) {
+        make_address((char *)src_addr, FX25_STAT_CALLSIGN);
+    }
+
+    p = packet;
+
+    memcpy(p, status_header, sizeof(status_header));
+    p += sizeof(status_header);
+
+    memcpy(&packet[CALLSIGN_LEN], src_addr, CALLSIGN_LEN);
+
+    p += fx25_decode_address(&ax25buf[CALLSIGN_LEN], p);
+
+    p += snprintf((char *)p, FX25_STATUS_PACKET_SIZE - (p - packet), " TAG=%u FX25=%u AX25=%u FCS_ERR=%u RS_DEC=%u",
+            tp->fx25_cnt_tag, tp->fx25_cnt_fx25, tp->fx25_cnt_tag - tp->fx25_cnt_fcs_err, tp->fx25_cnt_fcs_err, tp->fx25_cnt_fx25 - (tp->fx25_cnt_tag - tp->fx25_cnt_fcs_err));
+
+    send_packet(tp, packet, p - packet, SEND_PACKET_AX25);
+
+#ifdef DEBUG
+    ESP_LOGI(TAG, "fx25_send_status_packet(): size=%d, port=%d", p - packet, tp->port);
+#endif
+
+    free(packet);
+}
 
 static inline int bit_count(uint64_t bits)
 {
@@ -280,12 +352,13 @@ static int fx25_packet_decode(tcb_t *tp)
 	kiss_buf[0] = tp->port << 4;
 
 #if defined(DEBUG) || defined(FX25_STAT)
-#ifdef FX25_STAT
-    tp->fx25_cnt_fx25++;
-#endif
     if (xTaskGetTickCount() - tp->decode_time > 1000 / portTICK_PERIOD_MS) { // AX.25 packet decode fail
     	kiss_packet_send(kiss_buf, buf_len + 1 - 2); // add kiss_type, delete FCS
     }
+#ifdef FX25_STAT
+    tp->fx25_cnt_fx25++;
+    fx25_send_status_packet(tp, &kiss_buf[1]); // skip kiss type byte
+#endif
 #else
 	kiss_packet_send(kiss_buf, buf_len + 1 - 2); // add kiss_type, delete FCS
 #endif
@@ -327,12 +400,12 @@ void fx25_decode_bit(tcb_t *tp, uint8_t bit)
                 tp->fx25_data[tp->fx25_data_cnt++] = tp->fx25_data_byte;
                 tp->fx25_data_bit_cnt = 0;
 
-                if (tp->fx25_data_cnt >= tp->fx25_tagp->rs_code) {
+                if (tp->fx25_data_cnt >= tp->fx25_tagp->rs_code) { // all data received
 
 #if defined(DEBUG) || defined(FX25_STAT)
 					fx25_packet_decode(tp);
 #ifdef FX25_STAT
-                    ESP_LOGI(TAG, "FX.25 STAT: PORT=%d TAG=%d FX25=%d AX25=%d FCS_ERR=%d RS_DEC=%d",
+                    ESP_LOGI(TAG, "FX.25 STAT(%d): TAG=%d FX25=%d AX25=%d FCS_ERR=%d RS_DEC=%d",
                         tp->port, tp->fx25_cnt_tag, tp->fx25_cnt_fx25, tp->fx25_cnt_tag - tp->fx25_cnt_fcs_err, tp->fx25_cnt_fcs_err,
                         tp->fx25_cnt_fx25 - (tp->fx25_cnt_tag - tp->fx25_cnt_fcs_err));
 #endif

@@ -196,4 +196,10 @@ config FX25_STAT
     bool "output FX.25 FEC statistics report"
     default "n"
     depends on FX25_ENABLE
+
+config FX25_STAT_CALLSIGN
+    string "Source address of FX.25 statistics packet"
+    default "NOCALL"
+    depends on FX25_STAT
+
 endmenu

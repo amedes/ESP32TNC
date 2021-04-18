@@ -8,6 +8,7 @@
 */
 #include <stdio.h>
 #include <string.h>
+#include <ctype.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/queue.h"
@@ -28,6 +29,34 @@
 static const char TAG[] = "send";
 
 #define BUSY_PORT 2
+
+char *make_address(char addr[], char str[])
+{
+    char c, *p = str, *q = addr;
+    int ssid = 0;
+
+    memset(addr, ' ' << 1, CALLSIGN_LEN);
+
+    for (int i = 0; i < CALLSIGN_LEN - 1; i++) {
+    	c = *p++;
+
+	    if (c == '\0') break;
+	    if (c == '-') break;
+
+	    if (!isalnum(c)) break;
+
+	    *q++ = toupper(c) << 1;
+    }
+
+    if (c == '-' || *p++ == '-') {
+	    ssid = atoi(p);
+	    if (ssid < 0 || ssid > 15) ssid = 0;
+    }
+
+    addr[CALLSIGN_LEN - 1] = 0x61 | (ssid << 1);
+
+    return addr;
+}
 
 void send_packet(tcb_t *tp, void const *data, size_t size, int parity)
 {

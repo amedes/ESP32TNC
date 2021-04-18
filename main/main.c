@@ -54,36 +54,6 @@
 #ifdef BEACON
 
 #define PACKET_SIZE (240 - 2) // remain the room for FCS
-#define CALLSIGN_LEN 7
-
-static char *make_address(char str[])
-{
-    static char addr[CALLSIGN_LEN];
-    char c, *p = str, *q = addr;
-    int ssid = 0;
-
-    memset(addr, ' ' << 1, CALLSIGN_LEN);
-
-    for (int i = 0; i < CALLSIGN_LEN - 1; i++) {
-    	c = *p++;
-
-	    if (c == '\0') break;
-	    if (c == '-') break;
-
-	    if (!isalnum(c)) break;
-
-	    *q++ = toupper(c) << 1;
-    }
-
-    if (c == '-' || *p++ == '-') {
-	    ssid = atoi(p);
-	    if (ssid < 0 || ssid > 15) ssid = 0;
-    }
-
-    addr[CALLSIGN_LEN - 1] = 0x61 | (ssid << 1);
-
-    return addr;
-}
 
 static int make_packet(tcb_t *tp, uint8_t *packet, int pkt_len)
 {
@@ -132,18 +102,27 @@ static int make_packet(tcb_t *tp, uint8_t *packet, int pkt_len)
 static void send_packet_task(void *arg)
 {
     tcb_t *tp = (tcb_t *)arg;
-    static uint8_t packet[PACKET_SIZE];
+    uint8_t *packet;
     int pkt_len;
-    char *src_addr = make_address(BEACON_CALLSIGN);
+    static char src_addr[CALLSIGN_LEN];
+    
+    make_address(src_addr, BEACON_CALLSIGN);
 
     while (1) {
 
 	    vTaskDelay(BEACON_INTERVAL * 1000 / portTICK_PERIOD_MS);
 
+        packet = malloc(PACKET_SIZE);
+        if (packet == NULL) {
+            ESP_LOGW(TAG, "malloc() fail");
+            continue;
+        }
+
 	    pkt_len = make_packet(tp, packet, PACKET_SIZE);
 	    memcpy(&packet[CALLSIGN_LEN], src_addr, CALLSIGN_LEN); // src address
 
         send_packet(tp, packet, pkt_len, SEND_DEFAULT_PARITY);
+        free(packet);
 #if 0
 	    if (xRingbufferSend(tp->input_rb, packet, pkt_len, portMAX_DELAY) != pdTRUE) {
 	        ESP_LOGW(TAG, "xRingbufferSend() fail, port = %d", tp->port);
