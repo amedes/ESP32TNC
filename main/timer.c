@@ -408,7 +408,7 @@ void mod_task(void *arg)
 #endif
 		    	//ESP_LOGI(TAG, "ptt off: pin = %d, port = %d", tp->ptt_pin, tp->port);
 
-		    	//GPIO.func_out_sel_cfg[mp->gpio_pin].func_sel = SIG_GPIO_OUT_IDX; // disable DAC output
+		    	GPIO.func_out_sel_cfg[mp->gpio_pin].func_sel = SIG_GPIO_OUT_IDX; // disable DAC output
 
 		    	tp->ptt = false;
 #ifdef FX25TNCR2
