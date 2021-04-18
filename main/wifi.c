@@ -300,27 +300,27 @@ static void wifi_task(void *p)
 
     while (1) {
 #ifndef CONFIG_ESP_WIFI_SOFTAP
-	xEventGroupWaitBits(s_wifi_event_group, WIFI_CONNECTED_BIT, pdFALSE, pdFALSE, portMAX_DELAY);
-	ESP_LOGI(TAG, "WiFi connected");
+		xEventGroupWaitBits(s_wifi_event_group, WIFI_CONNECTED_BIT, pdFALSE, pdFALSE, portMAX_DELAY);
+		ESP_LOGI(TAG, "WiFi connected");
 #endif
 
-	// TCP
-	conn = netconn_new_with_callback(NETCONN_TCP, callback);
-	if (conn == NULL) continue;
-	xErr = netconn_bind(conn, IP_ADDR_ANY, TCP_PORT);
-	if (xErr != ERR_OK) continue;
-	xErr = netconn_listen(conn);
-	if (xErr != ERR_OK) continue;
+		// TCP
+		conn = netconn_new_with_callback(NETCONN_TCP, callback);
+		if (conn == NULL) continue;
+		xErr = netconn_bind(conn, IP_ADDR_ANY, TCP_PORT);
+		if (xErr != ERR_OK) continue;
+		xErr = netconn_listen(conn);
+		if (xErr != ERR_OK) continue;
 
-	while (1) {
-	    xErr = netconn_accept(conn, &newconn);
-	    ESP_LOGD(TAG, "netconn_accept(): %d", xErr);
-	    if (xErr != ERR_OK) continue;
+		while (1) {
+	    	xErr = netconn_accept(conn, &newconn);
+	    	ESP_LOGD(TAG, "netconn_accept(): %d", xErr);
+	    	if (xErr != ERR_OK) continue;
 
-	    // create tcp reader task
-	    if (xTaskCreatePinnedToCore(tcp_reader_task, "tcp_read", 1024*4, newconn, tskIDLE_PRIORITY+0, &tcp_reader, tskNO_AFFINITY) != pdTRUE) {
-		ESP_LOGD(TAG, "xTaskCreate(tcp_reader_task) fail");
-	    }
+	    	// create tcp reader task
+	    	if (xTaskCreatePinnedToCore(tcp_reader_task, "tcp_read", 1024*4, newconn, tskIDLE_PRIORITY+0, &tcp_reader, tskNO_AFFINITY) != pdTRUE) {
+				ESP_LOGD(TAG, "xTaskCreate(tcp_reader_task) fail");
+	    	}
 #if 0
 	    tcp_ringbuf = xRingbufferCreate(TCP_RINGBUF_SIZE, RINGBUF_TYPE_ALLOWSPLIT);
 	    if (tcp_ringbuf) {
@@ -344,7 +344,7 @@ static void wifi_task(void *p)
 		vRingbufferDelete(tcp_ringbuf);
 	    }
 #endif
-	}
+		}
     }
 }
 
@@ -356,40 +356,42 @@ static void udp_task(void *arg)
 
     while (1) {
 #ifndef CONFIG_ESP_WIFI_SOFTAP
-	xEventGroupWaitBits(s_wifi_event_group, WIFI_CONNECTED_BIT, pdFALSE, pdFALSE, portMAX_DELAY);
-	ESP_LOGI(TAG, "udp: WiFi connected");
+		xEventGroupWaitBits(s_wifi_event_group, WIFI_CONNECTED_BIT, pdFALSE, pdFALSE, portMAX_DELAY);
+		ESP_LOGI(TAG, "udp: WiFi connected");
 #endif
 
-	// UCP
-	if ((conn = netconn_new_with_callback(NETCONN_UDP, callback)) == NULL) {
-	    ESP_LOGW(TAG, "udp: netconn_new() fail");
-	    vTaskDelay(10 * 1000 / portTICK_PERIOD_MS);
-	    continue;
-	}
-	if (netconn_bind(conn, IP_ADDR_ANY, UDP_PORT) != ERR_OK) {
-	    ESP_LOGW(TAG, "udp: netconn_bind() fail");
-	    netconn_delete(conn);
-	    vTaskDelay(10 * 1000 / portTICK_PERIOD_MS);
-	    continue;
-	}
+		// UCP
+		if ((conn = netconn_new_with_callback(NETCONN_UDP, callback)) == NULL) {
+		    ESP_LOGW(TAG, "udp: netconn_new() fail");
+	    	vTaskDelay(10 * 1000 / portTICK_PERIOD_MS);
+	    	continue;
+		}
+		if (netconn_bind(conn, IP_ADDR_ANY, UDP_PORT) != ERR_OK) {
+		    ESP_LOGW(TAG, "udp: netconn_bind() fail");
+	    	netconn_delete(conn);
+	    	vTaskDelay(10 * 1000 / portTICK_PERIOD_MS);
+	    	continue;
+		}
 
     	while ((xErr = netconn_recv(conn, &nbuf)) == ERR_OK) {
-	    ESP_LOGD(TAG, "netconn_recv(): %d byte", netbuf_len(nbuf));
-	    static kcb_t kcb;
-	    kcb.data_size = 0;
-	    kcb.data_state = DATA_INFRAME;
+#ifdef DEBUG
+	    	ESP_LOGI(TAG, "netconn_recv(): %d byte", netbuf_len(nbuf));
+#endif
+	    	static kcb_t kcb;
+	    	kcb.data_size = 0;
+	    	kcb.data_state = DATA_INFRAME;
 
-	    // add destination IP and port No. for UDP client
-	    uart_add_udp(conn, netbuf_fromaddr(nbuf), netbuf_fromport(nbuf));
+	    	// add destination IP and port No. for UDP client
+	    	uart_add_udp(conn, netbuf_fromaddr(nbuf), netbuf_fromport(nbuf));
 
-	    size_t len = netbuf_len(nbuf);
-	    if (len <= DATA_BUF_SIZE) {
+	    	size_t len = netbuf_len(nbuf);
+	    	if (len <= DATA_BUF_SIZE) {
 
-	    	do {
-		    uint8_t *data;
-		    u16_t len;
+		    	do {
+		    		uint8_t *data;
+		    		u16_t len;
 
-		    netbuf_data(nbuf, (void **)&data, &len);
+		    		netbuf_data(nbuf, (void **)&data, &len);
 
 #if 0
 		    for (int i = 0; i < len; i++) {
@@ -401,24 +403,25 @@ static void udp_task(void *arg)
 		    printf("\n");
 #endif
 
-		    memcpy(&kcb.data_buf[kcb.data_size], data, len);
-		    kcb.data_size += len;
+		    		memcpy(&kcb.data_buf[kcb.data_size], data, len);
+		    		kcb.data_size += len;
 
-	    	} while (netbuf_next(nbuf) >= 0);
+	    		} while (netbuf_next(nbuf) >= 0);
 
-		// send received packet to the air
-	    	kiss_process_frame(&kcb);
+				// send received packet to the air
+	    		kiss_process_frame(&kcb);
 
-	    } else {
-		ESP_LOGW(TAG, "incoming UDP packet too larg, size = %d", len);
-	    }
+	    	} else {
+				ESP_LOGW(TAG, "incoming UDP packet too larg, size = %d", len);
+	    	}
 
-	    netbuf_delete(nbuf);
-	    ESP_LOGD(TAG, "netbuf_delete()");
-
-	}
-	ESP_LOGW(TAG, "udp: netconn_recv(): %d", xErr);
-	netconn_delete(conn);
+	    	netbuf_delete(nbuf);
+#ifdef DEBUG
+	    	ESP_LOGI(TAG, "netbuf_delete()");
+#endif
+		}
+		ESP_LOGW(TAG, "udp: netconn_recv(): %d", xErr);
+		netconn_delete(conn);
 
     }
 

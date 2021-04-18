@@ -304,7 +304,7 @@ void udp_output_packet(void *item, size_t size)
 {
     struct netbuf *nbuf = netbuf_new();
 
-    if (netbuf_ref(nbuf, &item, size) != ERR_OK) {
+    if (netbuf_ref(nbuf, item, size) != ERR_OK) {
 		ESP_LOGW(TAG, "netbuf_ref() fail");
 
 		netbuf_delete(nbuf);
