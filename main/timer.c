@@ -77,6 +77,8 @@ static  tcb_t *tp;
 #define MARK_MOD (SIN_CYCLES * MARK_DIV)	// 1200Hz
 #define SPACE_MOD (SIN_CYCLES * SPACE_DIV)	// 2200Hz
 
+#define DAC_OFF_DELAY 512	// DAC off delay time 512/1200 sec
+
 static const uint8_t sin_tab[SIN_CYCLES] = {
 	// cos table for sigma-delta DAC
 	90,90,88,86,84,80,76,71,65,59,52,
@@ -95,7 +97,7 @@ typedef struct {
     uint8_t sd_ch;	// sigmadelta dac channel
     uint8_t phase;	// phase of SIN, 0..65 or 0..131
 
-    uint8_t pttoff_timer;	// ptt off timer
+    uint16_t pttoff_timer;	// ptt off timer
     uint8_t level;	// nrzi state
     uint8_t gpio_pin;	// dac output pin
     uint8_t sd_func;	// GPIO matrix function number
@@ -322,7 +324,7 @@ void mod_task(void *arg)
 #define WBUF_SIZE 3 // wave buffer size
 
 		    	//mp->pttoff_timer = WBUF_SIZE + 3; // PTT off (val - 3) * (1/1200) sec after sending data
-		    	mp->pttoff_timer = mp->bitq_cnt + 8; // PTT off timer * (1/1200) sec after sending data
+		    	mp->pttoff_timer = mp->bitq_cnt + DAC_OFF_DELAY; // PTT off timer * (1/1200) sec after sending data
 
 			} else { // no data
 
@@ -355,7 +357,7 @@ void mod_task(void *arg)
 	    	//mp->bitq >>= 1;
 #ifdef ENABLE_TCM3105
 			if (tp->enable_tcm3105) {
-				// set level for TCM3105
+				// set level for TCM3105 TXD
 				int sd_level;
 
 				if (mp->level) {
@@ -394,28 +396,30 @@ void mod_task(void *arg)
 
 	    } else if (mp->pttoff_timer > 0) { // queue is empty
 
-			if (--mp->pttoff_timer == 0) {
-		    	if (port == 0) {
-					//gpio_set_level(TIMER_BUSY_PIN, 0); // PTT off
-		    	}
+			if (--mp->pttoff_timer == DAC_OFF_DELAY) { // ptt off timer expire
 
-		    	// PTT off
 #ifndef M5STICKC_AUDIO
-		    	gpio_set_level(tp->ptt_pin, 0);
+				// PTT off
+				gpio_set_level(tp->ptt_pin, 0);
 #endif
+
 #ifdef M5ATOM
-		    	m5atom_led_set_level(M5ATOM_LED_RED, 0);
+				// PTT LED off
+				m5atom_led_set_level(M5ATOM_LED_RED, 0);
 #endif
-		    	//ESP_LOGI(TAG, "ptt off: pin = %d, port = %d", tp->ptt_pin, tp->port);
+				//ESP_LOGI(TAG, "ptt off: pin = %d, port = %d", tp->ptt_pin, tp->port);
 
-		    	GPIO.func_out_sel_cfg[mp->gpio_pin].func_sel = SIG_GPIO_OUT_IDX; // disable DAC output
 
-		    	tp->ptt = false;
+				tp->ptt = false;
+
 #ifdef FX25TNCR2
-		    	gpio_set_level(tp->sta_led_pin, 0); // STA LED off
+				gpio_set_level(tp->sta_led_pin, 0); // STA LED off
 #endif
-			}
+			} else if (mp->pttoff_timer == 0) { // DAC off timer expire
 
+				GPIO.func_out_sel_cfg[mp->gpio_pin].func_sel = SIG_GPIO_OUT_IDX; // disable DAC output
+
+			}
 	    }
 
 	    //if (port == BUSY_PORT) gpio_set_level(TIMER_BUSY_PIN, 0); // free

@@ -41,8 +41,8 @@ void kiss_process_frame(kcb_t *kp)
 
     switch (cmd) {
 	case CMD_DATA:
-		if (kp->data_size <= 1) break;
 	    // send data to the port
+		if (kp->data_size <= 1) break;
 #ifdef FX25_ENABLE
 		kp->data_buf[0] = tp->fx25_parity; // number of FX.25 parity
 #else
