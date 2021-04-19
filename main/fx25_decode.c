@@ -23,6 +23,7 @@
 
 #define TAG "fx25_decode"
 
+#ifdef FX25_STAT
 
 static int fx25_decode_address(uint8_t *addr, uint8_t buf[])
 {
@@ -92,6 +93,7 @@ static void fx25_send_status_packet(tcb_t *tp, uint8_t ax25buf[])
 
     free(packet);
 }
+#endif // FX25_STAT
 
 static inline int bit_count(uint64_t bits)
 {
@@ -325,9 +327,7 @@ static int fx25_packet_decode(tcb_t *tp)
 
     if (buf_len <= 0 || crc16_le(0, buf, buf_len) != GOOD_CRC) { // FCS error
 
-#ifdef FX25_STAT
         tp->fx25_cnt_fcs_err++;
-#endif
 
 #ifdef DEBUG
         ESP_LOGI(TAG, "FCS error detected, port=%d", tp->port);
@@ -359,16 +359,17 @@ static int fx25_packet_decode(tcb_t *tp)
         free(kiss_buf);
         return -1;
     }
-    
-	kiss_buf[0] = tp->port << 4;
+
+    tp->fx25_cnt_fx25++;
+
+	kiss_buf[0] = tp->port << 4; // kiss type
 
 #if defined(DEBUG) || defined(FX25_STAT)
     if (xTaskGetTickCount() - tp->decode_time > 1000 / portTICK_PERIOD_MS) { // AX.25 packet decode fail
     	kiss_packet_send(kiss_buf, buf_len + 1 - 2); // add kiss_type, delete FCS
     }
 #ifdef FX25_STAT
-    tp->fx25_cnt_fx25++;
-    fx25_send_status_packet(tp, &kiss_buf[1]); // skip kiss type byte
+    fx25_send_status_packet(tp, &kiss_buf[1]); // skip kiss type
 #endif
 #else
 	kiss_packet_send(kiss_buf, buf_len + 1 - 2); // add kiss_type, delete FCS
@@ -396,9 +397,8 @@ void fx25_decode_bit(tcb_t *tp, uint8_t bit)
             tp->fx25_state = FX25_DATA;
             tp->fx25_data_cnt = 0;
             tp->fx25_data_bit_cnt = 0;
-#ifdef FX25_STAT
             tp->fx25_cnt_tag++;
-#endif
+
             break;
 
         case FX25_DATA:
@@ -415,11 +415,10 @@ void fx25_decode_bit(tcb_t *tp, uint8_t bit)
 
 #if defined(DEBUG) || defined(FX25_STAT)
 					fx25_packet_decode(tp);
-#ifdef FX25_STAT
+
                     ESP_LOGI(TAG, "FX.25 STAT(%d): TAG=%d FX25=%d AX25=%d FCS_ERR=%d RS_DEC=%d",
                         tp->port, tp->fx25_cnt_tag, tp->fx25_cnt_fx25, tp->fx25_cnt_tag - tp->fx25_cnt_fcs_err, tp->fx25_cnt_fcs_err,
                         tp->fx25_cnt_fx25 - (tp->fx25_cnt_tag - tp->fx25_cnt_fcs_err));
-#endif
 #else
 			    	if (xTaskGetTickCount() - tp->decode_time > 1000 / portTICK_PERIOD_MS) { // AX.25 packet decode fail
                    		fx25_packet_decode(tp);
