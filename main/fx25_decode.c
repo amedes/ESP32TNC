@@ -331,6 +331,17 @@ static int fx25_packet_decode(tcb_t *tp)
 
 #ifdef DEBUG
         ESP_LOGI(TAG, "FCS error detected, port=%d", tp->port);
+        printf("buf[%d] =\n", buf_len);
+        for (int i = 0; i < buf_len; i++) {
+            printf("%02x, ", buf[i]);
+            if (i % 16 == 15) printf("\n");
+        }
+        printf("\nfx25_data[%d] =\n", tp->fx25_tagp->rs_code);
+        for (int i = 0; i < tp->fx25_tagp->rs_code; i++) {
+            printf("%02x, ", tp->fx25_data[i]);
+            if (i % 16 == 15) printf("\n");
+        }
+        printf("\n");
 #endif
         tp->fx25_data[0] = AX25_FLAG; // the byte must be 0x7e
         int rs8_ret = rs8_decode(tp->fx25_data, tp->fx25_tagp->rs_code, tp->fx25_tagp->rs_code - tp->fx25_tagp->rs_info);

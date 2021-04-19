@@ -21,12 +21,12 @@ void kiss_process_frame(kcb_t *kp)
     int cmd = kp->data_buf[0];
 
     if (cmd == CMD_EXIT_KISS) {
-	ESP_LOGD(TAG, "exit KISS");
-	// set packet monitor mode
-	kp->monitor_mode = true;
-	ESP_LOGI(TAG, "monitor mode");
+		ESP_LOGD(TAG, "exit KISS");
+		// set packet monitor mode
+		kp->monitor_mode = true;
+		ESP_LOGI(TAG, "monitor mode");
 
-	return;
+		return;
     }
 
     int port = cmd >> 4;
@@ -41,6 +41,7 @@ void kiss_process_frame(kcb_t *kp)
 
     switch (cmd) {
 	case CMD_DATA:
+		if (kp->data_size <= 1) break;
 	    // send data to the port
 #ifdef FX25_ENABLE
 		kp->data_buf[0] = tp->fx25_parity; // number of FX.25 parity

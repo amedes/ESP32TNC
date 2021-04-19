@@ -33,11 +33,11 @@
 
 //#define I2S_DMA_BUF_COUNT	2
 #if TNC_PORTS >= 2
-#define I2S_DMA_BUF_COUNT	TNC_PORTS
+#define I2S_DMA_BUF_COUNT	(TNC_PORTS * 8)
 #else
-#define I2S_DMA_BUF_COUNT	2
+#define I2S_DMA_BUF_COUNT	8
 #endif
-#define I2S_DMA_BUF_LEN		1024
+#define I2S_DMA_BUF_LEN		256
 
 //I2S built-in ADC unit
 #define I2S_ADC_UNIT              ADC_UNIT_1
