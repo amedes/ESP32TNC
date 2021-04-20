@@ -128,11 +128,9 @@ void decode_bit(tcb_t *tp, uint8_t bit)
 	tp->flag >>= 1;
 	tp->flag |= bit << 7;
 
-	switch (tp->state)
-	{
+	switch (tp->state) {
 	case FLAG:
-		if (tp->flag == AX25_FLAG)
-		{ // found flag
+		if (tp->flag == AX25_FLAG) { // found flag
 			tp->state = DATA;
 			tp->data_cnt = 0;
 			tp->data_bit_cnt = 0;
@@ -277,8 +275,7 @@ void demodulator(tcb_t *tp, uint16_t adc)
 
 #ifdef DEBUG
 	static int count = 0;
-	if (count > SAMPLING_RATE * 10)
-	{
+	if (count > SAMPLING_RATE * 10)	{
 		ESP_LOGI(TAG, "adc: %u, avg: %d, cdt: %d, port = %d", adc, tp->avg, tp->cdt_lvl, tp->port);
 		if (tp->port == 0)
 			count = 0;
@@ -287,8 +284,7 @@ void demodulator(tcb_t *tp, uint16_t adc)
 		++count;
 #endif
 
-	if (tp->cdt)
-	{ // decode when cdt is on
+	if (tp->cdt) { // decode when cdt is on
 
 		// BPF, 900 - 2500 Hz
 		val = filter(tp->bpf, val);
@@ -297,19 +293,18 @@ void demodulator(tcb_t *tp, uint16_t adc)
 
 		// deocde bell 202 AFSK from ADC value
 		level = bell202_decode(tp, val); // level < 0: mark, level > 0: space
-		if (tp->bit)
-		{ // if mark
-			if (level > HYSTERERSIS)
-			{
+		if (tp->bit) { // if mark
+
+			if (level > HYSTERERSIS) {
 				tp->bit = 0; // space
 			}
-		}
-		else
-		{ // if space
-			if (level < -HYSTERERSIS)
-			{
+
+		} else { // if space
+			
+			if (level < -HYSTERERSIS) {
 				tp->bit = 1; // mark
 			}
+			
 		}
 
 		// decode AX.25 packet, decode NRZI, delete bit stuffing bit, etc...

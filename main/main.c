@@ -121,7 +121,7 @@ static void send_packet_task(void *arg)
 	    pkt_len = make_packet(tp, packet, PACKET_SIZE);
 	    memcpy(&packet[CALLSIGN_LEN], src_addr, CALLSIGN_LEN); // src address
 
-        send_packet(tp, packet, pkt_len, SEND_DEFAULT_PARITY);
+        send_packet(tp, packet, pkt_len, SEND_DEFAULT_PARITY, 0); // no wait (0), discard the packet if buffer full
         free(packet);
 #if 0
 	    if (xRingbufferSend(tp->input_rb, packet, pkt_len, portMAX_DELAY) != pdTRUE) {

@@ -6,6 +6,5 @@
 
 void send_init(tcb_t tcb[]);
 void send_bytes(tcb_t *tp, void const *data, size_t size);
-void send_packet(tcb_t *tp, void const *data, size_t size, int parity);
+void send_packet(tcb_t *tp, void const *data, size_t size, int parity, int wait);
 char *make_address(char addr[], char str[]);
-

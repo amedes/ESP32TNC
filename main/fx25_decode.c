@@ -85,7 +85,7 @@ static void fx25_send_status_packet(tcb_t *tp, uint8_t ax25buf[])
     p += snprintf((char *)p, FX25_STATUS_PACKET_SIZE - (p - packet), " TAG=%u FX25=%u AX25=%u FCS_ERR=%u RS_DEC=%u",
             tp->fx25_cnt_tag, tp->fx25_cnt_fx25, tp->fx25_cnt_tag - tp->fx25_cnt_fcs_err, tp->fx25_cnt_fcs_err, tp->fx25_cnt_fx25 - (tp->fx25_cnt_tag - tp->fx25_cnt_fcs_err));
 
-    send_packet(tp, packet, p - packet, SEND_PACKET_AX25);
+    send_packet(tp, packet, p - packet, SEND_PACKET_AX25, 0); // send as AX.25 packet, no wait
 
 #ifdef DEBUG
     ESP_LOGI(TAG, "fx25_send_status_packet(): size=%d, port=%d", p - packet, tp->port);
@@ -301,7 +301,7 @@ static int fx25_packet_decode(tcb_t *tp)
 
     uint8_t *buf = &kiss_buf[1]; // room for kiss type
 
-#ifdef DEBUG
+#ifdef _DEBUG
     // add error
     //tp->fx25_data[tp->fx25_tagp->rs_code / 2] ^= 1;
     int rs8_ret = rs8_decode(tp->fx25_data, tp->fx25_tagp->rs_code, tp->fx25_tagp->rs_code - tp->fx25_tagp->rs_info);
@@ -331,19 +331,11 @@ static int fx25_packet_decode(tcb_t *tp)
 
 #ifdef DEBUG
         ESP_LOGI(TAG, "FCS error detected, port=%d", tp->port);
-        printf("buf[%d] =\n", buf_len);
-        for (int i = 0; i < buf_len; i++) {
-            printf("%02x, ", buf[i]);
-            if (i % 16 == 15) printf("\n");
-        }
-        printf("\nfx25_data[%d] =\n", tp->fx25_tagp->rs_code);
-        for (int i = 0; i < tp->fx25_tagp->rs_code; i++) {
-            printf("%02x, ", tp->fx25_data[i]);
-            if (i % 16 == 15) printf("\n");
-        }
-        printf("\n");
 #endif
         tp->fx25_data[0] = AX25_FLAG; // the byte must be 0x7e
+#ifdef DEBUG
+        memcpy(buf, tp->fx25_data, tp->fx25_tagp->rs_info); // save original RS info.
+#endif
         int rs8_ret = rs8_decode(tp->fx25_data, tp->fx25_tagp->rs_code, tp->fx25_tagp->rs_code - tp->fx25_tagp->rs_info);
         if (rs8_ret == RS8_ERR) {
             free(kiss_buf);
@@ -351,6 +343,16 @@ static int fx25_packet_decode(tcb_t *tp)
         }
 #ifdef DEBUG
         ESP_LOGI(TAG, "RS decode: %d errors corrected, RS(%d, %d), port=%d", rs8_ret, tp->fx25_tagp->rs_code, tp->fx25_tagp->rs_info, tp->port);
+        printf("fx25_data[%d] =\n", tp->fx25_tagp->rs_info);
+        for (int i = 0; i < tp->fx25_tagp->rs_info; i++) {
+            if (tp->fx25_data[i] == buf[i]) {
+                printf("%02x, ", tp->fx25_data[i]);
+            } else {
+                printf("[%02x->%02x], ", buf[i], tp->fx25_data[i]);
+            }
+            if (i % 16 == 15) printf("\n");
+        }
+        printf("\n");
 #endif
         buf_len = fx25_unbit_stuffing(tp, buf);
     }

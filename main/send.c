@@ -58,11 +58,11 @@ char *make_address(char addr[], char str[])
     return addr;
 }
 
-void send_packet(tcb_t *tp, void const *data, size_t size, int parity)
+void send_packet(tcb_t *tp, void const *data, size_t size, int parity, int wait)
 {
 	uint8_t *item;
 
-	if (xRingbufferSendAcquire(tp->input_rb, (void **)&item, size + 1, portMAX_DELAY) != pdTRUE) {
+	if (xRingbufferSendAcquire(tp->input_rb, (void **)&item, size + 1, wait) != pdTRUE) {
 		ESP_LOGW(TAG, "send_packet() fail");
 		return;
 	}
