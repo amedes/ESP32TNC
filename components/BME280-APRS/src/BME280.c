@@ -148,7 +148,7 @@ void BME280_aprs_task(void *arg)
 
     len = i+1;
 
-    send_packet(&tcb[BME280_APRS_PORT], ax25_data, len, SEND_DEFAULT_PARITY);
+    send_packet(&tcb[BME280_APRS_PORT], ax25_data, len, SEND_DEFAULT_PARITY, 0);
 
     vTaskDelay(CONFIG_BME280_INTERVAL * 1000 / portTICK_RATE_MS);
     }
