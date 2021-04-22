@@ -178,6 +178,7 @@ typedef struct TCB { // TNC Control Block
     int pll_adj;
     uint32_t prev_ts;
     uint8_t enable_tcm3105; // enable TCM3105 for the port if true
+    uint8_t cdt_off_timer;
 #endif
 } tcb_t;
 

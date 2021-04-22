@@ -56,7 +56,7 @@ tcb_t tcb[TNC_PORTS];
 // adc channel to *tcb table
 tcb_t *adc_ch_tcb[8];
 
-#define I2SBUF_SIZE 1024
+#define I2SBUF_SIZE 256
 
 #define I2S_BUSY_PIN GPIO_NUM_26
 #define SEND_BUSY_PIN GPIO_NUM_27
@@ -218,9 +218,14 @@ static void read_i2s_adc(void *arg)
 				// decode adc sample
 #ifdef ENABLE_TCM3105
 				if (tp->enable_tcm3105) {
+
 					if (tp->cdt) { // decoding when CDT is on
-						decode(tp, (adc & 0xfff) >= 2048); // process modem RXD signal
+						decode(tp, (adc & 0xfff) > 0); // process modem RXD signal
+						tp->cdt_off_timer = 255;
+					} else if (tp->cdt_off_timer-- > 0) {
+						decode(tp, (adc & 0xfff) > 0); // process modem RXD signal						
 					}
+
 				} else
 #endif
 				{

@@ -127,7 +127,7 @@ void i2s_init(tcb_t tcb[])
 
 #if defined(ENABLE_TCM3105) && !defined(TCM3105_ADC)
 		if (i == TCM3105_PORT) {
-			// enable TCM3105 for the port, skip ADC setting 
+			// enable TCM3105 for the port but do not use ADC, skip ADC setting 
 			continue;
 		}
 #endif
