@@ -188,23 +188,20 @@ static void read_i2s_adc(void *arg)
 	static uint16_t buf[I2SBUF_SIZE];
 	size_t size;
 
-	while (1)
-	{
+	while (1) {
 
-		if (i2s_read(I2S_NUM_0, buf, I2SBUF_SIZE, &size, portMAX_DELAY) != ESP_OK)
-		{
+		if (i2s_read(I2S_NUM_0, buf, I2SBUF_SIZE, &size, portMAX_DELAY) != ESP_OK) {
 			ESP_LOGI(TAG, "i2s_read() fail");
 			continue;
 		}
 
 		//gpio_set_level(I2S_BUSY_PIN, 1); // busy
 
-		for (int i = 0; i < size / sizeof(uint16_t); i++)
-		{
+		for (int i = 0; i < size / sizeof(uint16_t); i++) {
 #if SOFTMODEM_PORTS == 1
-			uint16_t adc = buf[i ^ 1]; // I2S ADC storing ADC data in Bigendian order
+			uint32_t adc = buf[i ^ 1]; // I2S ADC storing ADC data in Bigendian order
 #else
-			uint16_t adc = buf[i];
+			uint32_t adc = buf[i];
 #endif
 
 #ifdef M5STICKC_AUDIO
@@ -213,17 +210,16 @@ static void read_i2s_adc(void *arg)
 			int ch = adc >> 12;
 			tcb_t *tp = adc_ch_tcb[ch];
 
-			if (tp)
-			{
+			if (tp) {
 				// decode adc sample
 #ifdef ENABLE_TCM3105
 				if (tp->enable_tcm3105) {
 
 					if (tp->cdt) { // decoding when CDT is on
-						decode(tp, (adc & 0xfff) > 0); // process modem RXD signal
+						decode(tp, (adc << 20) >> 31); // process modem RXD signal
 						tp->cdt_off_timer = 255;
 					} else if (tp->cdt_off_timer-- > 0) {
-						decode(tp, (adc & 0xfff) > 0); // process modem RXD signal						
+						decode(tp, (adc << 20) >> 31); // process modem RXD signal						
 					}
 
 				} else
