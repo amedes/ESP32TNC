@@ -109,7 +109,7 @@ void i2s_init(tcb_t tcb[])
 	ESP_ERROR_CHECK(i2s_adc_enable(i2s_num));
 
 	// delay for I2S bug workaround?
-        vTaskDelay(10 / portTICK_PERIOD_MS);
+	vTaskDelay(10 / portTICK_PERIOD_MS);
 
 	// ***IMPORTANT*** enable continuous adc sampling
 	SYSCON.saradc_ctrl2.meas_num_limit = 0;
@@ -147,12 +147,29 @@ void i2s_init(tcb_t tcb[])
 
 	SYSCON.saradc_ctrl.sar1_patt_len = num_ports - 1; // set pattern length
 
-	// adc1 controlled by DIG
-	SENS.sar_read_ctrl.sar1_dig_force = true;
-	SENS.sar_meas_start1.meas1_start_force = true;
-	SENS.sar_meas_start1.sar1_en_pad_force = true;
-	SENS.sar_touch_ctrl1.xpd_hall_force = true;
-	SENS.sar_touch_ctrl1.hall_phase_force = true;
+	// sample time setting
+	SYSCON.saradc_ctrl.sar_clk_div = 32;
+	SYSCON.saradc_fsm.sample_cycle = 16;
+	ESP_LOGI(TAG, "sar_clk_div = %d", SYSCON.saradc_ctrl.sar_clk_div);
+	ESP_LOGI(TAG, "sample_cycle = %d", SYSCON.saradc_fsm.sample_cycle);
+
+#if I2S_SAMPLE_RATE == 18000
+	// sample rate true 18000Hz setting
+	I2S0.clkm_conf.clkm_div_num = 222;
+	I2S0.clkm_conf.clkm_div_b = 2;
+	I2S0.clkm_conf.clkm_div_a = 9;
+	I2S0.sample_rate_conf.rx_bck_div_num = 20;
+#elif I2S_SAMPLE_RATE == 36000
+	// sample rate true 36000Hz setting
+	I2S0.clkm_conf.clkm_div_num = 222;
+	I2S0.clkm_conf.clkm_div_b = 2;
+	I2S0.clkm_conf.clkm_div_a = 9;
+	I2S0.sample_rate_conf.rx_bck_div_num = 10;
+#endif
+	ESP_LOGI(TAG, "clkm_div_num = %d", I2S0.clkm_conf.clkm_div_num);
+	ESP_LOGI(TAG, "clkm_div_b = %d", I2S0.clkm_conf.clkm_div_b);
+	ESP_LOGI(TAG, "clkm_div_a = %d", I2S0.clkm_conf.clkm_div_a);
+	ESP_LOGI(TAG, "rx_bck_div_num = %d", I2S0.sample_rate_conf.rx_bck_div_num);
 
 #endif // M5STICKC_AUDIO
 }
