@@ -148,8 +148,8 @@ void i2s_init(tcb_t tcb[])
 	SYSCON.saradc_ctrl.sar1_patt_len = num_ports - 1; // set pattern length
 
 	// sample time setting
-	SYSCON.saradc_ctrl.sar_clk_div = 32;
-	SYSCON.saradc_fsm.sample_cycle = 16;
+	SYSCON.saradc_ctrl.sar_clk_div = 2;
+	SYSCON.saradc_fsm.sample_cycle = 2;
 	ESP_LOGI(TAG, "sar_clk_div = %d", SYSCON.saradc_ctrl.sar_clk_div);
 	ESP_LOGI(TAG, "sample_cycle = %d", SYSCON.saradc_fsm.sample_cycle);
 
