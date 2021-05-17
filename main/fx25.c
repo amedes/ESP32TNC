@@ -66,60 +66,60 @@ int bit_stuffing(uint8_t *outbuf, size_t outbuf_size, uint8_t *inbuf, size_t inb
 
     for (int i = 0; i < inbuf_size; i++) {
 		uint8_t bitq = inbuf[i]; // bit queue
-	int bitq_bits = 8; // number of bits
+		int bitq_bits = 8; // number of bits
 
-	// bit stuffing
-	while (bitq_bits-- > 0) {
-	    int bit;
+		// bit stuffing
+		while (bitq_bits-- > 0) {
+	    	int bit;
 
-	    if (insert_zero) {
+	    	if (insert_zero) {
 
-		bit = 0;
-		insert_zero = false;
+				bit = 0;
+				insert_zero = false;
 
-	    } else {
+	    	} else {
 
-			bit = bitq & 1;
-			bitq >>= 1;
+				bit = bitq & 1;
+				bitq >>= 1;
 
-			if (do_bitstuffing) {
+				if (do_bitstuffing) {
 
-		    	if (bit) { // "one"
+		    		if (bit) { // "one"
 
 #define BIT_STUFFING_BITS 5
 
-		    		if (++count_ones >= BIT_STUFFING_BITS) { // insert zero
-			    		insert_zero = true;
-			    		bitq_bits++;
-			    		count_ones = 0;
-					}
+		    			if (++count_ones >= BIT_STUFFING_BITS) { // insert zero
+			    			insert_zero = true;
+			    			bitq_bits++;
+			    			count_ones = 0;
+						}
 
-		    	} else { // "zero"
+		    		} else { // "zero"
 
-					count_ones = 0;
+						count_ones = 0;
 
-		    	}
+			    	}
+				}
 			}
-		}
 
-		data |= bit << data_bits;
+			data |= bit << data_bits;
 
-		if (++data_bits >= 8) { // filled all 8 bits
-			if (outbuf_index < outbuf_size) outbuf[outbuf_index++] = data;
-			bit_len += data_bits;
-			data = 0;
-			data_bits = 0;
-	    }
+			if (++data_bits >= 8) { // filled all 8 bits
+				if (outbuf_index < outbuf_size) outbuf[outbuf_index++] = data;
+				bit_len += data_bits;
+				data = 0;
+				data_bits = 0;
+	    	}
 
-	} // while (bitq_bits-- > 0)
+		} // while (bitq_bits-- > 0)
 
     } // for (i = 0; ..
 
     if (data_bits > 0) { // there is data to be sent
 
-	if (outbuf_index < outbuf_size) outbuf[outbuf_index++] = data | (AX25_FLAG << data_bits); // padding with AX.25 flag
+		if (outbuf_index < outbuf_size) outbuf[outbuf_index++] = data | (AX25_FLAG << data_bits); // padding with AX.25 flag
 
-	bit_len += data_bits;
+		bit_len += data_bits;
     }
 
     return bit_len;
