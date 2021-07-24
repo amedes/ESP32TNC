@@ -127,8 +127,9 @@ static void send_packet_task(void *arg)
         // send the packet to all ports
         for (int i = 0; i < TNC_PORTS; i++) {
             send_packet(&tcb[i], packet, pkt_len, SEND_DEFAULT_PARITY, 0);
+            vTaskDelay(1000 / portTICK_PERIOD_MS);
         }
-#endif        
+#endif
         free(packet);
 #if 0
 	    if (xRingbufferSend(tp->input_rb, packet, pkt_len, portMAX_DELAY) != pdTRUE) {
