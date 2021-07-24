@@ -246,8 +246,11 @@ static const uint8_t CDT_LED_PIN[] = {
 	2,
 	0,
 	4,
-	0,
-	4,
+#ifdef CONFIG_ESP32_SPIRAM_SUPPORT
+	0, 4,
+#else
+	16, 17,
+#endif
 #elif defined(FX25TNCR4)
 	15, 2,
 #elif defined(M5ATOM)
