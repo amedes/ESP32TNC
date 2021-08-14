@@ -1,5 +1,5 @@
 #include <stdio.h>
-#include <freertos/FReeRTOS.h>
+#include <freertos/FreeRTOS.h>
 #include <freertos/ringbuf.h>
 
 #include "esp_log.h"
