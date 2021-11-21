@@ -55,6 +55,12 @@ static const uint8_t sigmadelta_gpio_pins[] = {
 #else
     26,
 #endif
+#elif defined(FX25TNCR4)
+#ifdef ENABLE_TCM3105
+	25, 21,
+#else
+	25, 26,
+#endif
 #else
     25, 26, 27, 14, 12, 13,
     //23, 22, 21, 19, 18, 5, 4, 15,	// noise away?
