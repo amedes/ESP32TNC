@@ -17,6 +17,18 @@ config BME280_MYCALL
     depends on BME280_EXISTS
     default "NOCALL"
 
+
+config BME280_DSTCALL
+    string "BME280 distnation callsign"
+    depends on BME280_EXISTS
+    default "BEACON"
+
+config BME280_RPTCALL
+    string "BME280 digipeater callsign"
+    depends on BME280_EXISTS
+    default "WIDE1-1"
+
+
 config BME280_LAT
     string "BME280 latitude"
     depends on BME280_EXISTS

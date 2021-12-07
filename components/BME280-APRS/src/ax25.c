@@ -33,7 +33,8 @@ char *ax25_call_to_addr(char str[])
 	    if (ssid < 0 || ssid > 15) ssid = 0;
     }
 
-    addr[CALLSIGN_LEN - 1] = 0x61 | (ssid << 1);
+    // addr[CALLSIGN_LEN - 1] = 0x61 | (ssid << 1);
+    addr[CALLSIGN_LEN - 1] = 0x60 | (ssid << 1);    /* LSB should be 0 */
 
     return addr;
 }

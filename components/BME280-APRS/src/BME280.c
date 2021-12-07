@@ -16,6 +16,8 @@
 /* 2021.03.04      Cleaned .c file   */
 /* 2021.03.05      Add               */
 /* 2021.03.11      Clean up          */
+/* 2021.07.03      Digipeater        */
+/* 2021.07.09      treat NULL pointer*/
 
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
@@ -35,6 +37,10 @@
 #ifdef CONFIG_BME280_EXISTS
 
 static const uint8_t bme280call[] = CONFIG_BME280_MYCALL;
+static const uint8_t bme280dst[]  = CONFIG_BME280_DSTCALL;    /* add for Digipeater */
+
+uint8_t bme280rpt[]  = CONFIG_BME280_RPTCALL;    /* not static not const *//* add for Digipeater */
+
 
 //void fx25_send_packet(uint8_t buf[], int size, int wait, int tnc_mode);
 //int get_tnc_mode(void);
@@ -81,31 +87,67 @@ void BME280_aprs_task(void *arg)
 {
     //set Address , Control , PID
     int len;
-    int i, j;
+    int i, j;     /* add j for Digipeater */
     static uint8_t ax25_data[PKT_LEN];
     static uint8_t dst_addr[7] = { 'B' << 1, 'E' << 1, 'A' << 1, 'C' << 1, 'O' << 1, 'N' << 1, SSID };
-    static uint8_t src_addr[7] = { 'N' << 1, 'O' << 1, 'C' << 1, 'A' << 1, 'L' << 1, 'L' << 1, SSID | 0x01 };;
+    static uint8_t src_addr[7] = { 'N' << 1, 'O' << 1, 'C' << 1, 'A' << 1, 'L' << 1, 'L' << 1, SSID };
+
+    static uint8_t rpt1_addr[7];    /* add for Digipeater */  
+    static uint8_t rpt2_addr[7];    /* add for Digipeater */
+
     uint8_t *s;
-    int seq = 1;
+    char    *u;    /* add for Digipeater */
+    //int seq = 1;
     //int tnc_mode = get_tnc_mode(); // get default TNC mode
 
     char  lat[] = CONFIG_BME280_LAT;   /*ex.  3539.20N */
     char  lon[] = CONFIG_BME280_LON;   /*ex. 13927.73E */
 
+    /* callsign to AX.25 addr*/
+    /* set address fields */
 
-    // callsign to AX.25 addr
+    i = 0;
+
+    s = (uint8_t *)ax25_call_to_addr((char *)bme280dst);    /* add for Digipeater */
+    if (s) {
+	memcpy(dst_addr, s, 7);
+        memcpy(&ax25_data[i], dst_addr, 7); i += 7;
+    }
+
     s = (uint8_t *)ax25_call_to_addr((char *)bme280call);
     if (s) {
 	memcpy(src_addr, s, 7);
-	src_addr[6] |= 0x01;
+        memcpy(&ax25_data[i], src_addr, 7); i += 7;
     }
 
 
-    i = 0;
-    memcpy(&ax25_data[i], dst_addr, 7); i += 7;
-    memcpy(&ax25_data[i], src_addr, 7); i += 7;
+    u = strtok((char *)bme280rpt, ",");    	/* add for Digipeater */
+    if (u != NULL) {    			/* add for Digipeater */
+        s = (uint8_t *)ax25_call_to_addr(u);    /* call ax25_call_to_addr when return value of strok is not NULL */
+        if (s) {
+	    memcpy(rpt1_addr, s, 7);
+            memcpy(&ax25_data[i], rpt1_addr, 7); i += 7;
+        }
+    }
+
+
+    u = strtok(NULL, ",");        		/* add for Digipeater */
+    if (u != NULL) {        			/* add for Digipeater */
+        s = (uint8_t *)ax25_call_to_addr(u);    /* call ax25_call_to_addr when return value of strok is not NULL */
+        if (s) {
+	    memcpy(rpt2_addr, s, 7);
+            memcpy(&ax25_data[i], rpt2_addr, 7); i += 7;
+        }
+    }
+
+
+    ax25_data[i-1] |= 0x01;      /* set LSB in last digit of address field */ /* add for Digipeater */ 
+
+
     ax25_data[i++] = UI_CONTROL; // Control 0x03, UI frame
     ax25_data[i++] = UI_PID;     // PID 0xf0, no layer 3 protocol
+
+    j = i;                         /* add for Digipeater */ /* j shows start digit of APRS data */
 
 
     while (1) {
@@ -129,7 +171,7 @@ void BME280_aprs_task(void *arg)
     printf("HUM: %.2lf%%  ", hum_act);
 
 
-    i =16; 
+    i = j; /* add for Digipeater */
     i = i + sprintf((char *)ax25_data+i, "!%s/%s-", lat, lon); //ax25_data[] is not a string
     i = i + sprintf((char *)ax25_data+i, "t:%.2lfdegC ", temp_act);
     i = i + sprintf((char *)ax25_data+i, "p:%.2lfhPa ", press_act);
