@@ -37,40 +37,44 @@ xQueueHandle cap_queue = NULL;
 
 static mcpwm_dev_t * const MCPWM[2] = {&MCPWM0, &MCPWM1};
 
-static void IRAM_ATTR mcpwm_isr_handler(void *arg)
+// capture isr handler
+static bool IRAM_ATTR mcpwm_isr_handler(mcpwm_unit_t mcpwm, mcpwm_capture_channel_id_t cap_channel, const cap_event_data_t *edata, void *arg)
 {
     tcb_t *tp = (tcb_t *)arg;
-    uint32_t mcpwm_intr_status;
+    //uint32_t mcpwm_intr_status;
     uint32_t ts0;
-    uint32_t edge;
+    //uint32_t edge;
     BaseType_t taskWoken = pdFALSE;
 
-    mcpwm_intr_status = MCPWM[MCPWM_UNIT_0]->int_st.val; //Read interrupt status
+    //mcpwm_intr_status = MCPWM[MCPWM_UNIT_0]->int_st.val; //Read interrupt status
 
-    if (mcpwm_intr_status & CAP0_INT_EN) {
-        ts0 = mcpwm_capture_signal_get_value(MCPWM_UNIT_0, MCPWM_SELECT_CAP0); // timestamp
+    //if (cap_channel == MCPWM_SELECT_CAP0) {
+        ts0 = edata->cap_value; // timestamp
 #if 1
-        edge = mcpwm_capture_signal_get_edge(MCPWM_UNIT_0, MCPWM_SELECT_CAP0); // edge polarity
+        //edge = mcpwm_capture_signal_get_edge(MCPWM_UNIT_0, MCPWM_SELECT_CAP0); // edge polarity
         ts0 >>= 1; // clear LSB for indicate positive or negative edge
         ts0 <<= 1;
-        ts0 |= edge >> 1; // edge: 1 - positive edge, 2 - negative edge
+        ts0 |= edata->cap_edge >> 1; // edge: 1 - positive edge, 2 - negative edge
 #endif
 #if 1
         if (tp->cdt) xQueueSendFromISR(cap_queue, &ts0, &taskWoken);
 #else
         xQueueSendFromISR(cap_queue, &ts0, &taskWoken);
 #endif
-    }
+    //}
 
-    MCPWM[MCPWM_UNIT_0]->int_clr.val = mcpwm_intr_status;
+    //MCPWM[MCPWM_UNIT_0]->int_clr.val = mcpwm_intr_status;
 
-#if 1
+#if 0
     if (taskWoken) {
         portYIELD_FROM_ISR();
     }
 #endif
+
+    return taskWoken;
 }
 
+#if 0
 static void isr_register_task(void *arg)
 {
     // register ISR handler
@@ -78,6 +82,7 @@ static void isr_register_task(void *arg)
 
     vTaskDelete(NULL);
 }
+#endif
 
 void mcpwm_initialize(void)
 {
@@ -96,16 +101,25 @@ void mcpwm_initialize(void)
 #define CAP_PRESCALE (0) // prescale value is 1
 
     // enable capture module
-    ESP_ERROR_CHECK(mcpwm_capture_enable(MCPWM_UNIT_0, MCPWM_SELECT_CAP0, MCPWM_POS_EDGE, CAP_PRESCALE));
+    // deprecated
+    //ESP_ERROR_CHECK(mcpwm_capture_enable(MCPWM_UNIT_0, MCPWM_SELECT_CAP0, MCPWM_BOTH_EDGE, CAP_PRESCALE));
+
+    static const mcpwm_capture_config_t cap_conf = {
+        .cap_edge = MCPWM_BOTH_EDGE,
+        .cap_prescale = CAP_PRESCALE,
+        .capture_cb = mcpwm_isr_handler,
+        .user_data = &tcb[TCM3105_PORT],
+    };
+    ESP_ERROR_CHECK(mcpwm_capture_enable_channel(MCPWM_UNIT_0, MCPWM_SELECT_CAP0, &cap_conf));
  
     // detect both positive and negative edge
-    MCPWM[MCPWM_UNIT_0]->cap_cfg_ch[0].mode = BIT(0) | BIT(1); 
+    //MCPWM[MCPWM_UNIT_0]->cap_chn_cfg[0].capn_mode = BIT(0) | BIT(1); 
 
     // register ISR handler
     //ESP_ERROR_CHECK(mcpwm_isr_register(MCPWM_UNIT_0, mcpwm_isr_handler, NULL, ESP_INTR_FLAG_IRAM, NULL));
 
     // register ISR handler to CPU 1
-    assert(xTaskCreatePinnedToCore(isr_register_task, "isr_register_task", 2048, &tcb[TCM3105_PORT], tskIDLE_PRIORITY, NULL, 1) == pdPASS);
+    //assert(xTaskCreatePinnedToCore(isr_register_task, "isr_register_task", 2048, &tcb[TCM3105_PORT], tskIDLE_PRIORITY, NULL, 1) == pdPASS);
 
     // enable interrupt
     MCPWM[MCPWM_UNIT_0]->int_ena.val = CAP0_INT_EN;
