@@ -19,6 +19,8 @@
 /* 2021.07.03      Digipeater        */
 /* 2021.07.09      treat NULL pointer*/
 
+#ifdef CONFIG_BME280_EXISTS
+
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
 #include <freertos/ringbuf.h>
@@ -32,9 +34,6 @@
 #define SSID 0x60
 #define UI_CONTROL 0x03
 #define UI_PID 0xf0
-
-
-#ifdef CONFIG_BME280_EXISTS
 
 static const uint8_t bme280call[] = CONFIG_BME280_MYCALL;
 static const uint8_t bme280dst[]  = CONFIG_BME280_DSTCALL;    /* add for Digipeater */

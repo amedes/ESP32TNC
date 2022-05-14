@@ -1,0 +1,8 @@
+menu "BK4802 Configuration"
+
+config BK4802_TX_POWER
+    int "BK4802 TX Power 0-7, (0:-40dBm .. 7:12dBm)"
+    default 7
+    range 0 7
+
+endmenu

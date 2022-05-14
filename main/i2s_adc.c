@@ -19,6 +19,8 @@
 #include "config.h"
 #include "tnc.h"
 
+#define I2S_BUG_FIX 1
+
 #define TAG "I2S"
 
 //i2s number
@@ -165,11 +167,30 @@ void i2s_init(tcb_t tcb[])
 	I2S0.clkm_conf.clkm_div_b = 2;
 	I2S0.clkm_conf.clkm_div_a = 9;
 	I2S0.sample_rate_conf.rx_bck_div_num = 10;
+#elif I2S_SAMPLE_RATE == 13200
+	// sample rate true 36000Hz setting
+	I2S0.clkm_conf.clkm_div_num = 242;
+	I2S0.clkm_conf.clkm_div_b = 14;
+	I2S0.clkm_conf.clkm_div_a = 33;
+	I2S0.sample_rate_conf.rx_bck_div_num = 25;
+#elif defined(I2S_BUG_FIX)
+	// ESP-IDF v4.4.1 I2S driver bug workaround
+	ESP_LOGI(TAG, "I2S bug workaround");
+#define PLL_D2_CLK (160*1000*1000/2)
+	int m = (PLL_D2_CLK + I2S_SAMPLE_RATE*255 - 1) / (I2S_SAMPLE_RATE*255);
+	int n = PLL_D2_CLK / (I2S_SAMPLE_RATE * m);
+	int b = ((PLL_D2_CLK % (I2S_SAMPLE_RATE * m)) * 63 + (I2S_SAMPLE_RATE * m)/2) / (I2S_SAMPLE_RATE * m);
+	ESP_LOGI(TAG, "setting %d Hz", (PLL_D2_CLK / m) * 63 / (n * 63 + b));
+	I2S0.clkm_conf.clkm_div_num = n;
+	I2S0.clkm_conf.clkm_div_b = b;
+	I2S0.clkm_conf.clkm_div_a = 63;
+	I2S0.sample_rate_conf.rx_bck_div_num = m;
 #endif
 	ESP_LOGI(TAG, "clkm_div_num = %d", I2S0.clkm_conf.clkm_div_num);
 	ESP_LOGI(TAG, "clkm_div_b = %d", I2S0.clkm_conf.clkm_div_b);
 	ESP_LOGI(TAG, "clkm_div_a = %d", I2S0.clkm_conf.clkm_div_a);
 	ESP_LOGI(TAG, "rx_bck_div_num = %d", I2S0.sample_rate_conf.rx_bck_div_num);
+	ESP_LOGI(TAG, "setting %d Hz", 80*1000*1000 / I2S0.sample_rate_conf.rx_bck_div_num * I2S0.clkm_conf.clkm_div_a / (I2S0.clkm_conf.clkm_div_num * I2S0.clkm_conf.clkm_div_a + I2S0.clkm_conf.clkm_div_b));
 
 #endif // M5STICKC_AUDIO
 }

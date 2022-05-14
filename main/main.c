@@ -49,6 +49,10 @@
 #include "BME280.h"   /* for BME280 APRS transmit test */
 #endif
 
+#ifdef BK4802
+#include "bk4802.h"
+#endif
+
 #define TAG "main"
 
 #ifdef BEACON
@@ -141,6 +145,17 @@ static void send_packet_task(void *arg)
 }
 #endif // BEACON
 
+#ifdef BK4802
+static bk4802_t bk4802 = {
+    .freq = CONFIG_BK4802_FREQ,
+    .i2c_num = I2C_NUM_0,
+    .sda_io_num = CONFIG_BK4802_SDA,
+    .scl_io_num = CONFIG_BK4802_SCL,
+    .trx_pin = CONFIG_BK4802_TRX,
+    .dcd_led = CONFIG_BK4802_DCD_LED,
+};
+#endif
+
 void app_main(void)
 {
     ESP_LOGI(TAG, 
@@ -161,6 +176,9 @@ void app_main(void)
 #endif
 #ifdef M5ATOM
         "M5TNC M5Atom version"
+#endif
+#ifdef BK4802
+        "FX.25 KISS TNC BK4802 version, experimental"
 #endif
     );
 
@@ -189,6 +207,12 @@ void app_main(void)
 
     static const uint8_t s[] = "M5TNC for M5StickC Plus\n";
     tty_write(s, sizeof(s) - 1);
+#endif
+
+#ifdef BK4802
+    // initialize BK4802 routine
+    bk4802_init(&bk4802);
+    //bk4802_init(&bk4802[1]);
 #endif
 
     // initialize UART
@@ -242,6 +266,13 @@ void app_main(void)
 #ifdef ENABLE_TCM3105
     // initialize TCM3105 support routines
     tcm3105_init();
+#endif
+
+#ifdef BK4802
+    //bk4802.trx_pin = tcb[0].ptt_pin;
+    tcb[0].bkp = &bk4802;
+    vSemaphoreDelete(bk4802.cdt_sem);
+    bk4802.cdt_sem = tcb[0].cdt_sem;
 #endif
 
 #ifdef BEACON

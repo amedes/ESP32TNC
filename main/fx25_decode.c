@@ -343,7 +343,7 @@ static int fx25_packet_decode(tcb_t *tp)
         }
 #ifdef DEBUG
         ESP_LOGI(TAG, "RS decode: %d errors corrected, RS(%d, %d), port=%d", rs8_ret, tp->fx25_tagp->rs_code, tp->fx25_tagp->rs_info, tp->port);
-        printf("fx25_data[%d] =\n", tp->fx25_tagp->rs_info);
+        printf("fx25_data[%d] = [received -> corrected]\n", tp->fx25_tagp->rs_info);
         for (int i = 0; i < tp->fx25_tagp->rs_info; i++) {
             if (tp->fx25_data[i] == buf[i]) {
                 printf("%02x, ", tp->fx25_data[i]);

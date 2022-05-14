@@ -21,6 +21,10 @@
 #include "m5atom.h"
 #endif
 
+#ifdef BK4802
+#include "bk4802.h"
+#endif
+
 #define FACTOR 1	// sampling rate, 1: 13200Hz, 2: 26400Hz
 
 #define TIMER_GROUP_NUM 0
@@ -61,6 +65,8 @@ static const uint8_t sigmadelta_gpio_pins[] = {
 #else
 	25, 26,
 #endif
+#elif defined (BK4802)
+	CONFIG_BK4802_AUDIOOUT,
 #else
     25, 26, 27, 14, 12, 13,
     //23, 22, 21, 19, 18, 5, 4, 15,	// noise away?
@@ -406,9 +412,16 @@ void mod_task(void *arg)
 				if (--mp->pttoff_timer == DAC_OFF_DELAY) { // ptt off timer expire
 
 #ifndef M5STICKC_AUDIO
+
+#ifdef BK4802
+					GPIO.func_out_sel_cfg[mp->gpio_pin].func_sel = SIG_GPIO_OUT_IDX; // disable DAC output
+					bk4802_ptt_isr(tp->bkp, 0); // PTT off, from ISR
+#else
 					// PTT off
 					gpio_set_level(tp->ptt_pin, 0);
 #endif
+
+#endif // M5STICKC_AUDIO
 
 #ifdef M5ATOM
 					// PTT LED off

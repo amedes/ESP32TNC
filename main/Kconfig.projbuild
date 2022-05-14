@@ -21,7 +21,10 @@ config FX25TNCR3
 
 config FX25TNCR4
     bool "FX.25 KISS TNC rev.4 (Software modem and TCM3105 version)"
-    
+
+config BK4802
+    bool "FX.25 KISS TNC rev.5 (KB4802 version, experimental)"
+
 endchoice
 
 config M5STICKC_AUDIO
@@ -202,4 +205,46 @@ config FX25_STAT_CALLSIGN
     default "NOCALL"
     depends on FX25_STAT
 
+config BK4802_FREQ
+    int "BK4802 default frequency"
+    default 431020000
+    range 0 440000000
+    depends on BK4802
+
+config BK4802_AUDIOIN
+    int "AUDIO input ADC1 CH number for BK4802, 0=36,3=39,4=32,5=33,6=34,7=35"
+    default 0
+    range 0 7
+    depends on BK4802
+
+config BK4802_AUDIOOUT
+    int "AUDIO output GPIO number for BK4802, 0-33"
+    default 25
+    range 0 33
+    depends on BK4802
+
+config BK4802_SDA
+    int "BK4802 I2C SDA GPIO number, 0-33"
+    default -1
+    range 0 33
+    depends on BK4802
+
+config BK4802_SCL
+    int "BK4802 I2C SCL GPIO number, 0-33"
+    default -1
+    range 0 33
+    depends on BK4802
+
+config BK4802_TRX
+    int "BK4802 TRX GPIO number, -1-33 (-1: disable)"
+    default -1
+    range -1 33
+    depends on BK4802
+
+config BK4802_DCD_LED
+    int "BK4802 DCD LED GPIO number, -1-33 (-1: disable)"
+    default -1
+    range -1 33
+    depends on BK4802
+    
 endmenu

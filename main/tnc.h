@@ -27,6 +27,10 @@
 #include "m5atom.h"
 #endif
 
+#ifdef BK4802
+#include "bk4802.h"
+#endif
+
 #if defined(FX25TNCR1)
 #define TNC_PORTS 1
 #define TCM3105_PORT 0  // port No. of TCM3105
@@ -40,8 +44,10 @@
 #define TNC_PORTS M5ATOM_PORTS	// 1..2
 #elif defined(M5STICKC)
 #define TNC_PORTS 1
+#elif defined(BK4802)
+#define TNC_PORTS 1
 #else
-#define TNC_PORTS 6 // number of ports 1..6
+#define TNC_PORTS 2 // number of ports 1..6
 #endif
 
 #if defined(ENABLE_TCM3105) && !defined(TCM3105_ADC)
@@ -57,7 +63,7 @@
 
 //#define SAMPLING_RATE 20184
 //#define SAMPLING_RATE 13200
-#define SAMPLING_RATE (1200*15)
+#define SAMPLING_RATE (1200*11)
 
 #define DELAYED_N ((DELAY_DIVIDEND * SAMPLING_RATE + DELAY_DIVISOR/2) / DELAY_DIVISOR)
 
@@ -146,7 +152,7 @@ typedef struct TCB { // TNC Control Block
     uint8_t bit;
 
     // transmitter control
-    uint8_t ptt;
+    volatile uint8_t ptt;
     int8_t ptt_pin;
     //QueueHandle_t mqueue; // modem queue
 
@@ -179,6 +185,10 @@ typedef struct TCB { // TNC Control Block
     uint32_t prev_ts;
     uint8_t enable_tcm3105; // enable TCM3105 for the port if true
     uint8_t cdt_off_timer;
+#endif
+
+#ifdef BK4802
+    bk4802_t *bkp;
 #endif
 } tcb_t;
 

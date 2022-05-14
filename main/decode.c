@@ -240,6 +240,8 @@ void demodulator(tcb_t *tp, uint16_t adc)
 	val = (int)adc - tp->avg;
 	tp->cdt_lvl = (tp->cdt_lvl * (CDT_AVG_N - 1) + val * val + CDT_AVG_N / 2) / CDT_AVG_N;
 
+#ifndef BK4802
+
 #define CDT_THR_LOW 8192
 //#define CDT_THR_LOW (8192 * 2) // for M5StickC Plus, noise level too high?
 #define CDT_THR_HIGH (CDT_THR_LOW * 4) // low +3dB
@@ -273,10 +275,12 @@ void demodulator(tcb_t *tp, uint16_t adc)
 #endif
 	}
 
+#endif // !BK4802
+
 #ifdef DEBUG
 	static int count = 0;
 	if (count > SAMPLING_RATE * 10)	{
-		ESP_LOGI(TAG, "adc: %u, avg: %d, cdt: %d, port = %d", adc, tp->avg, tp->cdt_lvl, tp->port);
+		ESP_LOGI(TAG, "adc: %u, avg: %d, cdt: %d, port = %d, SAMPLING_RATE = %d", adc, tp->avg, tp->cdt_lvl, tp->port, SAMPLING_RATE);
 		if (tp->port == 0)
 			count = 0;
 	}
@@ -284,8 +288,11 @@ void demodulator(tcb_t *tp, uint16_t adc)
 		++count;
 #endif
 
-	if (tp->cdt) { // decode when cdt is on
-
+#ifdef BK4802
+	if (!tp->ptt /*&& tp->bkp->squelch*/) { // decode when cdt is on
+#else
+	if (!tp->ptt && tp->cdt) { // decode when cdt is on
+#endif
 		// BPF, 900 - 2500 Hz
 		val = filter(tp->bpf, val);
 
