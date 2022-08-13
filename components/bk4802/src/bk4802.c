@@ -40,6 +40,9 @@
 #define BK4802_REG_RSSI 24
 #define BK4802_RX_VOL 15    // 0..15
 
+#define BK4802_RSSI_SQL_LV 0x40
+#define BK4802_RSSI_SQL_EN 0xff 
+
 static const char *TAG = "bk4802";
 
 static const uint16_t bk4802_rxreg[BK4802_REG_MAX] = {
@@ -67,7 +70,9 @@ static const uint16_t bk4802_rxreg[BK4802_REG_MAX] = {
         | (BK4802_RX_VOL),
     0x01ff, // REG20
     0xe000, // REG21
-    0x0040, // REG22
+    //0x0040, // REG22
+    0x1800  // REG22
+        | (BK4802_RSSI_SQL_LV),
     0x18e0  // REG23, Power save off, ASK
         | (BK4802_ASK << 8),
 };
@@ -100,6 +105,7 @@ static const uint16_t bk4802_txreg[BK4802_REG_MAX] = {
     0x0340, // REG22
     0x98e0  // REG23, PTT, ASK
         | (1 << 9)  // PTT on for BK4802P?
+        | (1 << 10) // MOD on for BK4802P
         | (BK4802_ASK << 8),
 };
 
@@ -341,7 +347,8 @@ static void bk4802_rssi(bk4802_t *bkp)
 
     int rssi = bk4802_read(bkp->i2c_num, BK4802_REG_RSSI) & 0xff;
 
-    if (rssi >= (bkp->rxreg[22] & 0xff)) {  // squelch open
+    //if (rssi >= (bkp->rxreg[22] & 0xff)) {  // squelch open
+    if (rssi >= BK4802_RSSI_SQL_LV) {  // squelch open
         if (!bkp->squelch) {
             xSemaphoreTake(bkp->cdt_sem, 0);
             bkp->squelch = true;
