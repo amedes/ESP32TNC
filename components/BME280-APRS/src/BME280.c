@@ -19,7 +19,7 @@
 /* 2021.07.03      Digipeater        */
 /* 2021.07.09      treat NULL pointer*/
 
-#ifdef CONFIG_BME280_EXISTS
+//#ifdef CONFIG_BME280_EXISTS
 
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
@@ -357,5 +357,4 @@ unsigned long int calibration_H(signed long int adc_H)
 
 
 
-#endif
-
+//#endif
