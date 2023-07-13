@@ -32,7 +32,7 @@
 
 #define BK4802_DEFAULT_FREQ 431000000
 #define BK4802_ASK 0        // 1: ASK enable, 0: ASK disable
-#ifdef CONFIG_BK4802_PA_POWER
+#ifdef CONFIG_BK4802_TX_POWER
 #define BK4802_TXPA_LEVEL CONFIG_BK4802_TX_POWER
 #else
 #define BK4802_TXPA_LEVEL 0 // Power level of TX PA, 0:-40dBm..7:12dBm
